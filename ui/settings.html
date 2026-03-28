@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>设置</title>
+  </head>
+  <body>
+    <div class="settings-window">
+      <header class="settings-titlebar">
+        <div class="settings-title">设置面板</div>
+        <div class="window-actions">
+          <button id="settings-min-btn" class="window-btn" type="button" aria-label="最小化">─</button>
+          <button id="settings-close-btn" class="window-btn window-btn-close" type="button" aria-label="关闭">✕</button>
+        </div>
+      </header>
+      <div class="settings-layout">
+        <aside class="settings-sidebar" id="settings-sidebar">
+          <button class="settings-tab active" type="button" data-page="model">模型管理</button>
+          <button class="settings-tab" type="button" data-page="llm">LLM配置</button>
+          <button class="settings-tab" type="button" data-page="memory">会话记忆</button>
+          <button class="settings-tab" type="button" data-page="tools">工具调用</button>
+          <button class="settings-tab" type="button" data-page="mcp">MCP</button>
+          <button class="settings-tab" type="button" data-page="multimodal">多模态</button>
+        </aside>
+        <section class="settings-content">
+          <div class="settings-page active" data-page="model">
+            <div class="model-manager">
+              <button id="import-model-btn" class="import-model-btn" type="button">导入模型文件夹</button>
+              <div class="transform-controls">
+                <label class="slider-row" for="slider-offset-x">
+                  <span>水平位置</span>
+                  <input id="slider-offset-x" type="range" min="-220" max="220" step="1" value="0" />
+                  <span id="slider-offset-x-value">0</span>
+                </label>
+                <label class="slider-row" for="slider-offset-y">
+                  <span>垂直位置</span>
+                  <input id="slider-offset-y" type="range" min="-260" max="260" step="1" value="0" />
+                  <span id="slider-offset-y-value">0</span>
+                </label>
+                <label class="checkbox-row" for="checkbox-follow-cursor">
+                  <span>视线跟随光标</span>
+                  <input id="checkbox-follow-cursor" type="checkbox" checked />
+                </label>
+              </div>
+              <div id="import-preview" class="import-preview" hidden>
+                <div class="preview-title">导入预览</div>
+                <div id="preview-name" class="preview-line"></div>
+                <div id="preview-type" class="preview-line"></div>
+                <div id="preview-entry" class="preview-line"></div>
+                <div class="preview-actions">
+                  <button id="confirm-import-btn" class="preview-btn" type="button">确认导入</button>
+                  <button id="cancel-import-btn" class="preview-btn preview-btn-ghost" type="button">取消</button>
+                </div>
+              </div>
+              <div id="model-list" class="model-list"></div>
+            </div>
+          </div>
+          <div class="settings-page" data-page="llm">
+            <div class="llm-config-panel">
+              <label class="llm-field">
+                <span>URL</span>
+                <input id="llm-base-url" type="text" placeholder="请输入模型服务 URL" />
+              </label>
+              <label class="llm-field">
+                <span>API Key</span>
+                <input id="llm-api-key" type="text" placeholder="请输入 API Key" />
+              </label>
+              <div class="llm-row-two">
+                <label class="llm-field llm-field-main">
+                  <span>模型名称</span>
+                  <input id="llm-model-name" type="text" placeholder="请输入模型名称" />
+                </label>
+                <label class="llm-field llm-field-side">
+                  <span>模型温度</span>
+                  <input id="llm-temperature" type="number" step="0.1" min="0" max="2" placeholder="0.7" />
+                </label>
+              </div>
+              <label class="llm-field llm-field-multiline">
+                <span>系统提示词</span>
+                <textarea id="llm-system-prompt" placeholder="请输入系统提示词"></textarea>
+              </label>
+              <button id="llm-confirm-btn" type="button" class="llm-confirm-btn">确认</button>
+            </div>
+          </div>
+          <div class="settings-page" data-page="memory">功能开发中</div>
+          <div class="settings-page" data-page="tools">
+            <div class="tools-panel">
+              <div class="tools-table-wrap">
+                <table class="tools-table">
+                  <thead>
+                    <tr>
+                      <th class="col-check">启用</th>
+                      <th>工具名称</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tools-table-body"></tbody>
+                </table>
+                <div id="tools-empty" class="tools-empty" hidden>未发现可用工具</div>
+              </div>
+              <button id="tools-confirm-btn" type="button" class="tools-confirm-btn">确认</button>
+            </div>
+          </div>
+          <div class="settings-page" data-page="mcp">功能开发中</div>
+          <div class="settings-page" data-page="multimodal">功能开发中</div>
+        </section>
+      </div>
+      <div id="delete-confirm-dialog" class="confirm-overlay" hidden aria-hidden="true">
+        <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title">
+          <div class="confirm-header">
+            <div class="confirm-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M12 2.8L22.3 20a1.2 1.2 0 01-1 1.8H2.7a1.2 1.2 0 01-1-1.8L12 2.8zm0 5a1.2 1.2 0 00-1.2 1.2V13a1.2 1.2 0 102.4 0V9A1.2 1.2 0 0012 7.8zm0 9.8a1.4 1.4 0 100-2.8 1.4 1.4 0 000 2.8z" />
+              </svg>
+            </div>
+            <div id="delete-confirm-title" class="confirm-title">删除模型确认</div>
+          </div>
+          <div class="confirm-message">将删除该模型所有的配置文件和会话记忆，请谨慎操作</div>
+          <div class="confirm-actions">
+            <button id="delete-confirm-cancel" type="button" class="confirm-btn confirm-btn-ghost">取消</button>
+            <button id="delete-confirm-ok" type="button" class="confirm-btn confirm-btn-danger">确认删除</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/settings.ts"></script>
+  </body>
+</html>

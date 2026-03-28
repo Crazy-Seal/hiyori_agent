@@ -1,0 +1,20 @@
+# Test your FastAPI endpoints
+
+GET http://127.0.0.1:8000/
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:8000/health
+Accept: application/json
+
+###
+
+POST http://127.0.0.1:8000/v1/chat
+Content-Type: application/json
+
+{
+  "message": "现在UTC时间是多少？"
+}
+
+###

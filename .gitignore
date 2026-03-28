@@ -1,0 +1,26 @@
+# ===== Python cache / test artifacts =====
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.pytest_status.txt
+
+# ===== Local IDE / temp =====
+.idea/
+*.tmp
+tmp_*.txt
+
+# ===== Local runtime data =====
+memory/sqlite/*.sqlite3
+agent_workspace/
+
+# ===== Frontend local data/build artifacts =====
+ui/node_modules/
+ui/dist/
+ui/dist-electron/
+ui/user_data/
+ui/public/live2d/
+ui/hiyori_pro_zh.zip
+
+# ===== OS files =====
+.DS_Store
+Thumbs.db

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Miku Desktop Pet</title>
+  </head>
+  <body>
+    <div id="app">
+      <div id="bubble" class="bubble">你好呀～</div>
+      <div id="live2d-stage"></div>
+      <form id="chat-form" class="chat-form">
+        <input id="chat-input" type="text" placeholder="和我说点什么..." maxlength="300" autocomplete="off" />
+        <button id="send-btn" type="submit">发送</button>
+        <button id="settings-btn" type="button" aria-label="打开设置" title="设置">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M19.43 12.98c.04-.32.07-.65.07-.98s-.03-.66-.07-.98l2.11-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1a7.27 7.27 0 0 0-1.69-.98l-.38-2.65a.5.5 0 0 0-.5-.42h-4a.5.5 0 0 0-.5.42l-.38 2.65c-.6.24-1.16.56-1.69.98l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46a.5.5 0 0 0 .12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.39.31.61.22l2.49-1c.53.42 1.09.74 1.69.98l.38 2.65c.05.24.26.42.5.42h4c.24 0 .45-.18.5-.42l.38-2.65c.6-.24 1.16-.56 1.69-.98l2.49 1c.22.09.48 0 .61-.22l2-3.46a.5.5 0 0 0-.12-.64l-2.11-1.65ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z" />
+          </svg>
+        </button>
+      </form>
+    </div>
+    <script src="/live2dcubismcore.min.js"></script>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

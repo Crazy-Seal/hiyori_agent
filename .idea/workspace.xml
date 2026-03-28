@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="e14b3aab-9749-4b44-a120-4c1b118f11ba" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/graph.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/memory/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/memory/memory.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/subgraph_for_coding.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/tools/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/tools/access_the_internet.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/tools/delete_file.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/tools/edit_file.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/tools/plan_and_coding.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/tools/read_file.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/tools/run_ps.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/tools/search_memory.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/tools/update_plan.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/tools/write_file.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/utils/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/utils/log.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/utils/messages.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/utils/prompt.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/utils/safe_path.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/utils/todo_manager.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/agent/utils/work_memory.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/config/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/config/config.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/crud/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/crud/chat_history_dao.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/crud/chat_settings_dao.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/dependencies.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/routes/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/routes/agent.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/routes/chat_settings.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/routes/memory.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/schemas/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/schemas/chat.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/schemas/chat_settings.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/schemas/result.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/services/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/services/agent_service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/services/chat_settings_service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/services/memory_service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/config/chat_settings.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/config/settings.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/test_api.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/test_memory.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="CopilotPersistence">
+    <persistenceIdMap>
+      <entry key="_E:/code/hiyori_agent" value="3BYetIgdVXhZxQptUUupH11vNLb" />
+      <entry key="_E:/code/miku" value="3ApNbRqrA7Xwus0Oir7zI3WFfoa" />
+      <entry key="_E:/code/my_agent" value="3AhiXTDNtRqpS9Ev7OqcebFz3VM" />
+    </persistenceIdMap>
+  </component>
+  <component name="CopilotUserSelectedModel">
+    <selectedModels>
+      <entry key="chat-panel" value="GPT-5.3-Codex" />
+      <entry key="agent-panel" value="GPT-5.3-Codex" />
+    </selectedModels>
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="FastAPI main" />
+        <option value="FastAPI test_main" />
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Crazy-Seal&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/Crazy-Seal/hiyori_agent.git&quot;,
+    &quot;accountId&quot;: &quot;bc16ac0d-cfbb-48a9-bb37-f876f020c8c9&quot;
+  }
+}</component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 3
+}</component>
+  <component name="ProjectId" id="3AhiXTDNtRqpS9Ev7OqcebFz3VM" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "FastAPI.hiyori_agent.executor": "Run",
+    "FastAPI.miku.executor": "Debug",
+    "FastAPI.my_agent.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python tests.Python tests for tests.test_api.test.executor": "Run",
+    "Python tests.Python tests in test_api.py.executor": "Run",
+    "Python.main.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "git-widget-placeholder": "master",
+    "last_opened_file_path": "E:/code/hiyori_agent",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "org.jetbrains.plugins.gitlab.GitLabSettingsConfigurable",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="E:\code\miku\app\agent\memory" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="E:\code\miku" />
+      <recent name="E:\code\miku\app" />
+    </key>
+  </component>
+  <component name="RunManager" selected="FastAPI.hiyori_agent">
+    <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="hiyori_agent" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="RUN_TOOL" value="" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="hiyori_agent" type="Python.FastAPI">
+      <option name="additionalOptions" value="--reload --reload-exclude agent_workspace/*" />
+      <option name="file" value="E:\code\hiyori_agent\main.py" />
+      <module name="hiyori_agent" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="$PROJECT_DIR$/../../Software/miniconda3/envs/my_agent/python.exe" />
+      <option name="SDK_NAME" value="my_agent" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="false" />
+      <option name="ADD_SOURCE_ROOTS" value="false" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="RUN_TOOL" value="" />
+      <option name="launchJavascriptDebuger" value="false" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Python tests for tests.test_api" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+      <module name="hiyori_agent" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="RUN_TOOL" value="" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;tests.test_api&quot;" />
+      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Python tests in test_api.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+      <module name="hiyori_agent" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="RUN_TOOL" value="" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;$PROJECT_DIR$/tests/test_api.py&quot;" />
+      <option name="_new_targetType" value="&quot;PATH&quot;" />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="FastAPI.hiyori_agent" />
+      <item itemvalue="Python.main" />
+      <item itemvalue="Python tests.Python tests for tests.test_api" />
+      <item itemvalue="Python tests.Python tests in test_api.py" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.main" />
+        <item itemvalue="Python tests.Python tests in test_api.py" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-PY-253.31033.139" />
+        <option value="bundled-python-sdk-2653e85de345-6d6dccd035ac-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-253.31033.139" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="e14b3aab-9749-4b44-a120-4c1b118f11ba" name="Changes" comment="" />
+      <created>1773051245034</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1773051245034</updated>
+      <workItem from="1773051246023" duration="10348000" />
+      <workItem from="1773110829487" duration="16318000" />
+      <workItem from="1773285620824" duration="18401000" />
+      <workItem from="1773370241588" duration="30674000" />
+      <workItem from="1773417887112" duration="834000" />
+      <workItem from="1773646602994" duration="23276000" />
+      <workItem from="1773846238363" duration="3090000" />
+      <workItem from="1773850924440" duration="1676000" />
+      <workItem from="1773892807680" duration="29766000" />
+      <workItem from="1773972830892" duration="29037000" />
+      <workItem from="1774020601994" duration="7209000" />
+      <workItem from="1774028025104" duration="655000" />
+      <workItem from="1774066142233" duration="7073000" />
+      <workItem from="1774249000370" duration="1683000" />
+      <workItem from="1774270656793" duration="4077000" />
+      <workItem from="1774277642617" duration="5091000" />
+      <workItem from="1774323916290" duration="2057000" />
+      <workItem from="1774326925320" duration="36452000" />
+      <workItem from="1774436546029" duration="9505000" />
+      <workItem from="1774494476742" duration="5836000" />
+      <workItem from="1774529262498" duration="77000" />
+      <workItem from="1774530108846" duration="3623000" />
+      <workItem from="1774586118181" duration="11465000" />
+      <workItem from="1774630716983" duration="2570000" />
+      <workItem from="1774670075779" duration="526000" />
+      <workItem from="1774670641127" duration="380000" />
+      <workItem from="1774671046070" duration="23000" />
+      <workItem from="1774676664916" duration="726000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+    <option name="exactExcludedFiles">
+      <list>
+        <option value="$PROJECT_DIR$/ui/electron/preload.cjs" />
+      </list>
+    </option>
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/my_agent$.coverage" NAME=" Coverage Results" MODIFIED="1774013308328" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/my_agent$my_agent.coverage" NAME="my_agent Coverage Results" MODIFIED="1773065465257" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/miku$miku.coverage" NAME="miku Coverage Results" MODIFIED="1774633268830" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/my_agent$miku.coverage" NAME="miku Coverage Results" MODIFIED="1774249177320" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/miku$main.coverage" NAME="main Coverage Results" MODIFIED="1774370478587" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/miku$hiyori_agent.coverage" NAME="hiyori_agent Coverage Results" MODIFIED="1774670645503" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+  </component>
+  <component name="github-copilot-workspace">
+    <instructionFileLocations>
+      <option value=".github/instructions" />
+    </instructionFileLocations>
+    <promptFileLocations>
+      <option value=".github/prompts" />
+    </promptFileLocations>
+  </component>
+</project>

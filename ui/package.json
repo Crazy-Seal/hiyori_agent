@@ -1,0 +1,30 @@
+{
+  "name": "miku-desktop-pet-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "prepare:live2d": "node scripts/prepare-live2d.mjs",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "dev": "npm run prepare:live2d && npm run build:electron && run-p dev:renderer dev:electron",
+    "dev:renderer": "vite",
+    "dev:electron": "wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron dist-electron/main.js",
+    "build": "npm run prepare:live2d && vite build && npm run build:electron",
+    "start": "cross-env NODE_ENV=production electron ."
+  },
+  "dependencies": {
+    "pixi-live2d-display": "^0.4.0",
+    "pixi.js": "^6.5.10"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.0",
+    "adm-zip": "^0.5.16",
+    "cross-env": "^10.0.0",
+    "electron": "^38.0.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.4",
+    "wait-on": "^8.0.5"
+  }
+}

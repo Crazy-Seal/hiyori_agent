@@ -1,0 +1,17 @@
+# 长期记忆配置
+memory:
+  embedding_model:
+    api_key: ${ALIBABA_API_KEY}
+    model: "text-embedding-v4"
+    dimension: 1024
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+# 编程AI配置
+coding:
+  coding_model:
+    api_key: ${DMX_API_KEY}
+    model: "gpt-5.3-codex"
+    base_url: "https://www.dmxapi.cn/v1"
+    temperature: 0.3
+# Tavily配置（让AI访问互联网）
+tavily:
+  api_key: ${TAVILY_API_KEY}

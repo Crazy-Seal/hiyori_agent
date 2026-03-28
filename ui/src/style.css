@@ -1,0 +1,102 @@
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: "Microsoft YaHei", sans-serif;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  pointer-events: none;
+}
+
+.bubble {
+  min-height: 30px;
+  max-width: 380px;
+  margin-bottom: 8px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(20, 20, 30, 0.72);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.4;
+  pointer-events: auto;
+  user-select: text;
+}
+
+#live2d-stage {
+  width: 420px;
+  height: 600px;
+  pointer-events: auto;
+}
+
+#live2d-stage canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.chat-form {
+  width: 400px;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  pointer-events: auto;
+}
+
+#chat-input {
+  flex: 1;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 12px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+#send-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 0 14px;
+  background: #00a6ff;
+  color: white;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+#send-btn:not(:disabled):hover {
+  filter: brightness(1.2);
+}
+
+#send-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+#settings-btn {
+  width: 40px;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: filter 0.15s ease;
+}
+
+#settings-btn:hover {
+  filter: brightness(1.2);
+}
+
+#settings-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: #3b4b5a;
+}
