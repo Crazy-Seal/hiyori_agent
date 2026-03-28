@@ -59,9 +59,12 @@ hiyori_agent/
    `
 2. **安装依赖**:
    `npm install
-   # 或使用 pnpm install / yarn install
    `
-3. **开发模式运行**:
+3. **下载live2d模型**
+   进入`https://cubism.live2d.com/sample-data/bin/hiyori_pro/hiyori_pro_zh.zip`下载
+   
+   将下载后的压缩包放在/ui路径下
+4. **开发模式运行**:
    `npm run dev
    `
    > 启动 Vite 开发服务器并拉起 Electron 客户端窗口，展示 Live2D 桌宠并与后端交互。

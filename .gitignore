@@ -6,6 +6,7 @@ __pycache__/
 
 # ===== Local IDE / temp =====
 .idea/
+.vscode/
 *.tmp
 tmp_*.txt
 
