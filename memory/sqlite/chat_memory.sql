@@ -8,12 +8,12 @@ CREATE TABLE IF NOT EXISTS chat_history (
 
 CREATE INDEX idx_thread_time ON chat_history (thread_id, timestamp);
 
--- 情景记忆（长期摘要）
-CREATE TABLE IF NOT EXISTS episodic_memory (
+-- 短期记忆摘要
+CREATE TABLE IF NOT EXISTS short_memory (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     thread_id TEXT NOT NULL,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     content TEXT NOT NULL
 );
 
-CREATE INDEX idx_episodic_thread_time ON episodic_memory (thread_id, timestamp);
+CREATE INDEX idx_short_thread_time ON short_memory (thread_id, timestamp);
