@@ -41,6 +41,15 @@ def _find_conda_exe() -> str | None:
 
 def _build_command(command: str) -> list[str] | None:
     """构建最终执行命令；要求使用独立 conda 环境时返回 conda run 前缀。"""
+    # 统一设置 PowerShell 进程与子命令输出为 UTF-8，减少中文乱码。
+    utf8_command = (
+        "$utf8NoBom = New-Object System.Text.UTF8Encoding($false);"
+        "[Console]::InputEncoding = $utf8NoBom;"
+        "[Console]::OutputEncoding = $utf8NoBom;"
+        "$OutputEncoding = $utf8NoBom;"
+        "chcp 65001 > $null;"
+        f"{command}"
+    )
     ps_cmd = [
         "powershell.exe",
         "-NoProfile",
@@ -48,7 +57,7 @@ def _build_command(command: str) -> list[str] | None:
         "-ExecutionPolicy",
         "Bypass",
         "-Command",
-        command,
+        utf8_command,
     ]
     if not RUN_PS_FORCE_CONDA:
         return ps_cmd
@@ -160,6 +169,8 @@ def run_ps(command: str) -> str:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
         )
         try:

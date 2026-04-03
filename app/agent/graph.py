@@ -183,3 +183,71 @@ def invoke_agent_stream(
             continue
         if isinstance(chunk, (AIMessage, AIMessageChunk)):
             yield chunk
+
+
+def get_thread_checkpoint_watermark(thread_id: str, checkpoint_ns: str = "") -> int:
+    """调用agent前，先查询当前会话在checkpoint表中的最大rowid，出错时回滚用"""
+    CHECKPOINT_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(str(CHECKPOINT_DB_PATH)) as conn:
+        row = conn.execute(
+            """
+            SELECT COALESCE(MAX(rowid), 0)
+            FROM checkpoints
+            WHERE thread_id = ? AND checkpoint_ns = ?
+            """,
+            (thread_id, checkpoint_ns),
+        ).fetchone()
+    return int(row[0]) if row else 0
+
+
+def rollback_thread_checkpoints_after(
+    thread_id: str,
+    baseline_rowid: int,
+    checkpoint_ns: str = "",
+) -> tuple[int, int]:
+    """回滚本轮会话的checkpoint"""
+    # 删除缓存，确保后续 graph 构建和执行时能正确反映 checkpoint 的回滚结果。
+    build_graph.cache_clear()
+
+    CHECKPOINT_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(str(CHECKPOINT_DB_PATH)) as conn:
+        # 先查询出需要删除的 checkpoint_id 列表
+        checkpoint_ids = [
+            row[0]
+            for row in conn.execute(
+                """
+                SELECT checkpoint_id
+                FROM checkpoints
+                WHERE thread_id = ? AND checkpoint_ns = ? AND rowid > ?
+                """,
+                (thread_id, checkpoint_ns, baseline_rowid),
+            ).fetchall()
+        ]
+
+        # 删除 writes 表中关联的写入记录
+        deleted_writes = 0
+        if checkpoint_ids:
+            placeholders = ",".join("?" for _ in checkpoint_ids)
+            params = [thread_id, checkpoint_ns, *checkpoint_ids]
+            write_cursor = conn.execute(
+                f"""
+                DELETE FROM writes
+                WHERE thread_id = ?
+                  AND checkpoint_ns = ?
+                  AND checkpoint_id IN ({placeholders})
+                """,
+                params,
+            )
+            deleted_writes = int(write_cursor.rowcount)
+        # 删除 checkpoints 表中对应的 checkpoint 记录
+        checkpoint_cursor = conn.execute(
+            """
+            DELETE FROM checkpoints
+            WHERE thread_id = ? AND checkpoint_ns = ? AND rowid > ?
+            """,
+            (thread_id, checkpoint_ns, baseline_rowid),
+        )
+        deleted_checkpoints = int(checkpoint_cursor.rowcount)
+        conn.commit()
+
+    return deleted_checkpoints, deleted_writes

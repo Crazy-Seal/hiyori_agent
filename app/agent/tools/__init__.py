@@ -6,6 +6,11 @@ TOOLS_REGISTRY = {
     "search_memory": "app.agent.tools.search_memory:search_memory",
     "access_the_internet": "app.agent.tools.access_the_internet:access_the_internet",
     "plan_and_coding": "app.agent.tools.plan_and_coding:plan_and_coding",
+    "run_ps": "app.agent.tools.run_ps:run_ps",
+    "read_file": "app.agent.tools.read_file:read_file",
+    "write_file": "app.agent.tools.write_file:write_file",
+    "edit_file": "app.agent.tools.edit_file:edit_file",
+    "delete_file": "app.agent.tools.delete_file:delete_file",
 }
 
 # 编程子图工具：同样走延迟加载，集中在 tools 包统一维护。

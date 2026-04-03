@@ -22,11 +22,11 @@ from app.schemas.chat_settings import ChatSettings
 
 
 # 子图 checkpoint 独立存储路径，避免和主图短期记忆冲突。
-CHECKPOINT_DB_PATH = Path(__file__).resolve().parents[2] / "memory" / "sqlite" / "subgraph_for_coding.sqlite3"
+SUBGRAPH_CHECKPOINT_DB_PATH = Path(__file__).resolve().parents[2] / "memory" / "sqlite" / "subgraph_for_coding.sqlite3"
 # 子图状态中最多保留的人类消息轮次（用于 checkpoint 压缩）。
-MAX_HUMAN_MESSAGES_IN_CHECKPOINT = 50
+SUBGRAPH_MAX_HUMAN_MESSAGES_IN_CHECKPOINT = 50
 # 每次喂给模型的最近人类消息窗口大小。
-RECENT_CONTEXT_HUMAN_MESSAGES = 5
+SUBGRAPH_RECENT_CONTEXT_HUMAN_MESSAGES = 5
 
 # 子图可调用工具由 app.agent.tools.get_subgraph_tools 统一管理。
 
@@ -39,7 +39,7 @@ def reduce_messages_keep_recent_humans(
     merged = add_messages(left, right)
     return slice_recent_messages_by_human(
         merged,
-        max_human_messages=MAX_HUMAN_MESSAGES_IN_CHECKPOINT,
+        max_human_messages=SUBGRAPH_MAX_HUMAN_MESSAGES_IN_CHECKPOINT,
     )
 
 
@@ -55,8 +55,8 @@ class CodingSubgraphState(BaseModel):
 @lru_cache(maxsize=1)
 def get_subgraph_checkpointer() -> SqliteSaver:
     """创建并缓存子图专用 checkpoint 存储器。"""
-    CHECKPOINT_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(CHECKPOINT_DB_PATH), check_same_thread=False)
+    SUBGRAPH_CHECKPOINT_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(SUBGRAPH_CHECKPOINT_DB_PATH), check_same_thread=False)
     return SqliteSaver(conn)
 
 
@@ -86,7 +86,7 @@ def call_subgraph_model(state: CodingSubgraphState, config: RunnableConfig | Non
     # 仅保留最近窗口消息，降低 token 开销。
     recent_messages = slice_recent_messages_by_human(
         state.messages,
-        max_human_messages=RECENT_CONTEXT_HUMAN_MESSAGES,
+        max_human_messages=SUBGRAPH_RECENT_CONTEXT_HUMAN_MESSAGES,
     )
     # 清洗消息，避免工具消息格式异常影响模型调用。
     recent_messages = normalize_messages_for_model(recent_messages)
@@ -95,13 +95,14 @@ def call_subgraph_model(state: CodingSubgraphState, config: RunnableConfig | Non
     todo_manager = TodoManager()
     todo_view = todo_manager.update(state.todo_items)
     system_prompt = (
-        "你是专注执行编码任务的编程专家。"
-        "你会根据用户给出的待办事项列表和命令，逐步完成编程任务。"
-        "编程时请调用工具，并优先给出可执行结果。如缺少依赖，可根据错误提示安装后重试。"
-        "conda环境和工作目录都已经为你准备好，你可以直接执行命令和生成文件。"
-        "每完成一条待办事项，必须调用工具更新待办事项列表的状态。"
-        "回答用户时，如执行成功直接回复完成，如执行失败回复错误原因，回复禁止多于30字"
-        f"\n\n[编码计划]\n{todo_view}"
+        "你是专注执行编程任务的编程专家。"
+        "conda环境和工作目录都已经为你准备好，你可以直接调用工具执行命令和生成文件。"
+        "每完成一条编码计划，必须调用工具更新编码计划列表的状态。"
+        "若代码运行出错或缺少依赖，可根据错误提示修改代码或安装依赖后重试，直到成功为止。"
+        "回答用户时，如执行成功直接回复运行结果，如需要，输出程序或项目的运行方法；如执行失败回复错误原因。回复禁止多于50字，禁止输出大块代码"
+        "**重要事项：你必须根据以下的编码计划列表和用户的命令，调用工具逐步完成编程任务，"
+        "执行任务时必须调用工具，并生成可执行的代码文件。**"
+        f"\n\n[编码计划列表]\n{todo_view}"
     )
     messages = [SystemMessage(content=system_prompt)] + recent_messages
     response = model.invoke(messages)
