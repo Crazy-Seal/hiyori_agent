@@ -30,4 +30,4 @@ Unset `AYAYA_ENV` means production: use repository `memory/`, `config/chat_setti
 
 ## Commit & Pull Request Guidelines
 
-Follow the existing history: concise Chinese, imperative summaries describing one logical change, such as `隔离测试环境并修复后端资源管理`. Pull requests should explain purpose, implementation impact, test commands and results, configuration changes, and linked issues. Include screenshots or a short recording for visible UI changes.
+All commit messages must follow Conventional Commits using `<type>(<scope>): <description>`; the scope is optional. Use concise Chinese imperative descriptions for one logical change, for example `fix(agent): 修复流式工具调用聚合`. Common types include `feat`, `fix`, `refactor`, `test`, `docs`, `build`, `ci`, and `chore`. Pull requests should explain purpose, implementation impact, test commands and results, configuration changes, and linked issues. Include screenshots or a short recording for visible UI changes.

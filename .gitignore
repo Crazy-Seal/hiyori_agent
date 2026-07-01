@@ -36,6 +36,7 @@ config/chat_settings.yaml
 
 # ===== Claude =====
 .claude
+.agents
 CLAUDE.md
 
 # ===== demo =====
