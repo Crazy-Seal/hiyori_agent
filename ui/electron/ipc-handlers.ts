@@ -204,6 +204,7 @@ export const registerIpcHandlers = (): void => {
       temperature: payload.temperature,
       system_prompt: payload.system_prompt,
       tools_list: [...payload.tools_list],
+      memory_plugins: payload.memory_plugins ? [...payload.memory_plugins] : null,
       name: payload.name,
       feature: payload.feature,
       character: payload.character,

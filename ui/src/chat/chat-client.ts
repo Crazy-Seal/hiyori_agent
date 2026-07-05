@@ -30,7 +30,7 @@ export interface ChatClientOptions {
   bubble: BubbleManager;
   chatHistory: ChatHistoryManager;
   sendBtn: HTMLButtonElement;
-  input: HTMLInputElement;
+  input: HTMLTextAreaElement;
   sessionId: string;
   onChatComplete?: () => void;
 }
@@ -42,7 +42,7 @@ export class ChatClient {
   private bubble: BubbleManager;
   private chatHistory: ChatHistoryManager;
   private sendBtn: HTMLButtonElement;
-  private input: HTMLInputElement;
+  private input: HTMLTextAreaElement;
   private sessionId: string;
   private onChatComplete?: () => void;
   private hasUserSubmittedMessage = false;

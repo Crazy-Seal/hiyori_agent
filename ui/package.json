@@ -6,11 +6,12 @@
   "main": "dist-electron/electron/main.js",
   "scripts": {
     "prepare:live2d": "node scripts/prepare-live2d.mjs",
-    "build:electron": "tsc -p tsconfig.electron.json",
+    "typecheck": "tsc -p tsconfig.json && tsc --noEmit -p tsconfig.electron.json && tsc -p tsconfig.preload.json",
+    "build:electron": "tsc -p tsconfig.electron.json && vite build --config vite.preload.config.ts",
     "dev": "npm run prepare:live2d && npm run build:electron && run-p dev:renderer dev:electron",
     "dev:renderer": "vite",
     "dev:electron": "wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron dist-electron/electron/main.js",
-    "build": "npm run prepare:live2d && vite build && npm run build:electron",
+    "build": "npm run prepare:live2d && npm run typecheck && vite build && npm run build:electron",
     "start": "cross-env NODE_ENV=production electron ."
   },
   "dependencies": {

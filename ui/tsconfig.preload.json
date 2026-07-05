@@ -5,9 +5,8 @@
     "moduleResolution": "NodeNext",
     "strict": true,
     "skipLibCheck": true,
-    "outDir": "dist-electron",
+    "noEmit": true,
     "types": ["node", "electron"]
   },
-  "include": ["electron"],
-  "exclude": ["electron/preload.ts"]
+  "include": ["electron/preload.ts", "shared-types.ts"]
 }

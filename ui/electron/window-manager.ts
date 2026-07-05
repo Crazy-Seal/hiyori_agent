@@ -81,7 +81,7 @@ export const createMainWindow = (): BrowserWindow => {
     alwaysOnTop: true,
     fullscreenable: false,
     webPreferences: {
-      preload: path.resolve(__dirname, "../../electron/preload.cjs"),
+      preload: path.resolve(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -131,7 +131,7 @@ export const openSettingsWindow = (): void => {
     fullscreenable: false,
     backgroundColor: "#141722",
     webPreferences: {
-      preload: path.resolve(__dirname, "../../electron/preload.cjs"),
+      preload: path.resolve(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
     },
