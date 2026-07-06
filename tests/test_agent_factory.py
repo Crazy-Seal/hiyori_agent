@@ -16,11 +16,17 @@ def _settings(memory_plugins):
     )
 
 
-def test_image_plugin_only_runs_when_memory_consumes_its_task(monkeypatch) -> None:
+def test_memory_plugin_owns_image_processing(monkeypatch) -> None:
     monkeypatch.setattr(agent_factory, "Agent", lambda config: config)
 
     without_memory = agent_factory.build_agent(_settings(None))
     with_memory = agent_factory.build_agent(_settings(["summary"]))
 
     assert without_memory.plugins == ["context_window"]
-    assert with_memory.plugins == ["context_window", "image", "memory"]
+    assert with_memory.plugins == ["context_window", "memory"]
+
+
+def test_image_is_not_registered_as_standalone_plugin() -> None:
+    from app.agent.plugins.registry import PluginRegistry
+
+    assert not PluginRegistry.has("image")

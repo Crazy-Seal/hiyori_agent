@@ -3,8 +3,8 @@ from types import SimpleNamespace
 
 from app.agent.context import HookContext, PluginHook
 from app.agent.models import vlm
-from app.agent.plugins import image as image_plugin_module
-from app.agent.plugins.image import ImagePlugin
+from app.agent.plugins import memory as memory_plugin_module
+from app.agent.plugins.memory import MemoryPlugin
 from app.agent.state import AgentState
 from app.agent.utils.domain.images import get_image_task
 
@@ -37,7 +37,75 @@ def test_vlm_client_is_closed(monkeypatch) -> None:
     assert clients[0].closed is True
 
 
-def test_image_plugin_cancels_unconsumed_task(monkeypatch) -> None:
+def test_memory_plugin_starts_and_consumes_image_task(monkeypatch) -> None:
+    async def describe(*args, **kwargs):
+        return memory_plugin_module.ImageTaskResult("一只猫", ["cat.png"])
+
+    monkeypatch.setattr(
+        memory_plugin_module,
+        "generate_multiple_image_descriptions",
+        describe,
+    )
+
+    async def scenario() -> None:
+        plugin = MemoryPlugin()
+        state = AgentState.create_new("test-session")
+        state.messages.append(
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "看看这张图"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/png;base64,AA=="},
+                    },
+                ],
+            }
+        )
+
+        await plugin.execute(HookContext.create(PluginHook.ON_INVOKE, state))
+        key = state.extra["image_task_key"]
+        assert get_image_task(key) is not None
+
+        description, filenames = await plugin._await_image(state)
+
+        assert description == "一只猫"
+        assert filenames == ["cat.png"]
+        assert "image_task_key" not in state.extra
+        assert get_image_task(key) is None
+        assert key not in plugin._task_keys
+
+    asyncio.run(scenario())
+
+
+def test_memory_plugin_ignores_message_without_image(monkeypatch) -> None:
+    called = False
+
+    async def describe(*args, **kwargs):
+        nonlocal called
+        called = True
+
+    monkeypatch.setattr(
+        memory_plugin_module,
+        "generate_multiple_image_descriptions",
+        describe,
+    )
+
+    async def scenario() -> None:
+        plugin = MemoryPlugin()
+        state = AgentState.create_new("test-session")
+        state.add_user_message("只有文字")
+
+        await plugin.execute(HookContext.create(PluginHook.ON_INVOKE, state))
+
+        assert "image_task_key" not in state.extra
+        assert plugin._task_keys == set()
+
+    asyncio.run(scenario())
+    assert called is False
+
+
+def test_memory_plugin_cancels_unconsumed_task(monkeypatch) -> None:
     started = asyncio.Event()
 
     async def never_finishes(*args, **kwargs):
@@ -45,11 +113,11 @@ def test_image_plugin_cancels_unconsumed_task(monkeypatch) -> None:
         await asyncio.Future()
 
     monkeypatch.setattr(
-        image_plugin_module, "generate_multiple_image_descriptions", never_finishes
+        memory_plugin_module, "generate_multiple_image_descriptions", never_finishes
     )
 
     async def scenario() -> None:
-        plugin = ImagePlugin()
+        plugin = MemoryPlugin()
         state = AgentState.create_new("test-session")
         state.messages.append(
             {

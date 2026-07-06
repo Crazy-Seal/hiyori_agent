@@ -9,7 +9,7 @@ def build_agent(chat_settings: ChatSettings) -> Agent:
     plugins = ["context_window"]
     # 记忆默认随 memory_plugins 开启（与旧语义一致：未配置则不挂记忆）
     if chat_settings.memory_plugins:
-        plugins.extend(["image", "memory"])
+        plugins.append("memory")
 
     config = AgentConfig(
         session_id=chat_settings.session_id,

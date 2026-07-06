@@ -119,7 +119,6 @@ class PluginRegistry:
 LAZY_PLUGINS = {
     "memory": "app.agent.plugins.memory:MemoryPlugin",
     "context_window": "app.agent.plugins.context_window:ContextWindowPlugin",
-    "image": "app.agent.plugins.image:ImagePlugin",
 }
 
 for name, spec in LAZY_PLUGINS.items():
