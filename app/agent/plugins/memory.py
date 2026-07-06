@@ -1,6 +1,6 @@
 """记忆插件。
 
-把旧 ChatNode / MemoryFinalizeNode 的记忆职责接入插件钩子：
+通过插件钩子处理图片描述、记忆检索和对话持久化：
 - ON_INVOKE：若最新用户消息含图片，启动后台 VLM 描述任务。
 - BEFORE_LLM：每轮一次，把检索到的记忆上下文注入 state.memory_context。
 - BEFORE_RESPONSE：保存对话、按需触发摘要/日记，每 10 条人类消息提取情景/语义记忆。

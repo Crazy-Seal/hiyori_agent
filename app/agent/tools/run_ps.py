@@ -1,7 +1,4 @@
-"""run_ps 工具 - 在独立 conda 环境中执行 PowerShell 命令（带危险命令拦截与动态超时）。
-
-从 app/agent/tools/run_ps.py 忠实移植，安全策略（黑名单、conda 隔离、超时行为）保持一致。
-"""
+"""在独立 conda 环境中执行 PowerShell 命令，并提供危险命令拦截与动态超时。"""
 
 import asyncio
 import os

@@ -1,9 +1,9 @@
 """agent 引擎回归测试（离线，无需网络）。
 
-覆盖 Agent 引擎重构中的核心回归场景：
-- Bug #1：助手消息带 tool_calls 时用枚举 role，不再崩溃
-- Bug #2：流式工具调用在流末仅产出一次（不重复执行）
-- Bug #4：中断恢复能用持久化路由信息重入同一工具，并注入截屏图片
+覆盖以下核心行为：
+- 带工具调用的助手消息可正确序列化
+- 流式工具调用在流末仅产出一次
+- 中断恢复可重入同一工具并注入截屏图片
 """
 
 import asyncio
@@ -100,7 +100,7 @@ async def _drain(agen):
     return [ev async for ev in agen]
 
 
-# ==================== Bug #2：流式工具调用仅产出一次 ====================
+# ==================== 流式工具调用聚合 ====================
 
 def test_astream_emits_each_tool_call_once():
     async def run():
@@ -265,7 +265,7 @@ def test_astream_rejects_invalid_tool_arguments(raw_arguments):
         asyncio.run(run())
 
 
-# ==================== Bug #1：带工具调用的助手消息不崩溃 ====================
+# ==================== 助手工具调用序列化 ====================
 
 def test_assistant_message_with_tools_serializes():
     msg = AssistantMessageWithTools(
@@ -273,7 +273,7 @@ def test_assistant_message_with_tools_serializes():
         content="",
         tool_calls=[ToolCall(id="c1", name="screenshot", args={})],
     )
-    d = msg.to_openai_format()  # 旧代码传 role="assistant" 字符串会在此 .value 崩溃
+    d = msg.to_openai_format()
     assert d["role"] == "assistant"
     assert d["tool_calls"][0]["function"]["name"] == "screenshot"
 
@@ -317,7 +317,7 @@ def test_tool_call_extra_content_roundtrips_into_followup_request():
     }
 
 
-# ==================== Bug #4：可恢复工具 + 图片注入 完整往返 ====================
+# ==================== 可恢复工具与图片注入 ====================
 
 def test_resumable_screenshot_roundtrip():
     async def run():
@@ -363,7 +363,7 @@ def test_resumable_screenshot_roundtrip():
     assert state.interrupt_data is None
 
 
-# ==================== Phase 5：ContextWindowPlugin 接入 pipeline ====================
+# ==================== 上下文窗口插件 ====================
 
 def test_context_window_plugin_builds_and_pops_window():
     from app.agent.plugins.context_window import ContextWindowPlugin
@@ -440,7 +440,7 @@ def test_extract_new_ai_messages_dict():
     assert ai[1]["tool_calls"] == []
 
 
-# ==================== Phase 7：SSE 字节兼容 + v2 service ====================
+# ==================== SSE 格式与 AgentService ====================
 
 def test_sse_formatter_v2_events_byte_compatible():
     from app.agent.core.event_router import AgentEvent, EventType as ET
@@ -551,7 +551,7 @@ def test_agent_service_v2_error_raises_and_closes():
     assert stub.closed is True
 
 
-# ==================== Phase 8：Skill + MCP ====================
+# ==================== Skill 与 MCP ====================
 
 def test_skill_loads_tools_and_prompt_fragment():
     from app.agent.agent import Agent, AgentConfig

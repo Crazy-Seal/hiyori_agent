@@ -66,7 +66,7 @@ class InterruptEvent:
             "resume_state": self.resume_state,
         }
 
-    # 向后兼容别名（旧调用点默认取最小字段）
+    # 默认序列化为客户端字段，避免持久化路由信息进入 SSE。
     def to_dict(self) -> dict:
         return self.to_client()
 

@@ -1,6 +1,5 @@
 import asyncio
 import json
-import sqlite3
 from pathlib import Path
 
 import aiosqlite
@@ -62,7 +61,6 @@ def test_intermediate_checkpoint_replaces_previous_one_atomically(tmp_path: Path
 
     asyncio.run(scenario())
 
-
 def test_completed_checkpoint_removes_intermediate_and_keeps_latest_thirty(
     tmp_path: Path,
 ) -> None:
@@ -91,47 +89,6 @@ def test_completed_checkpoint_removes_intermediate_and_keeps_latest_thirty(
             assert len(rows) == StateManager.MAX_COMPLETED_CHECKPOINTS_PER_SESSION + 1
             assert [row[1] for row in rows].count("intermediate") == 1
             assert (await manager.load()).messages[-1]["content"] == "最新中间态"
-        finally:
-            await manager.close()
-
-    asyncio.run(scenario())
-
-
-def test_legacy_database_migrates_existing_rows_to_completed(tmp_path: Path) -> None:
-    db_path = tmp_path / "legacy.sqlite3"
-    with sqlite3.connect(db_path) as db:
-        db.execute("""
-            CREATE TABLE checkpoints (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id TEXT NOT NULL,
-                state_json TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        for index in range(StateManager.MAX_COMPLETED_CHECKPOINTS_PER_SESSION + 5):
-            state = AgentState.create_new("legacy-session")
-            state.add_assistant_message(f"历史状态 {index}")
-            db.execute(
-                "INSERT INTO checkpoints (session_id, state_json) VALUES (?, ?)",
-                ("legacy-session", json.dumps(state.to_checkpoint(), default=str)),
-            )
-
-    async def scenario() -> None:
-        manager = StateManager("legacy-session", db_path=str(db_path))
-        try:
-            loaded = await manager.load()
-            rows = await checkpoint_rows(manager)
-            assert loaded.messages[-1]["content"] == "历史状态 34"
-            assert len(rows) == 35
-            assert {row[1] for row in rows} == {"completed"}
-
-            # 中间态写入不主动裁掉迁移历史；下一条完成态再统一收敛。
-            await manager.save(loaded, checkpoint_type="intermediate")
-            assert len(await checkpoint_rows(manager)) == 36
-            await manager.save(loaded, checkpoint_type="completed")
-            rows = await checkpoint_rows(manager)
-            assert len(rows) == StateManager.MAX_COMPLETED_CHECKPOINTS_PER_SESSION
-            assert {row[1] for row in rows} == {"completed"}
         finally:
             await manager.close()
 

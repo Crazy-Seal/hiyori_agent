@@ -76,10 +76,9 @@ async def log_tool_call_result(
     *,
     logger_name: str = "app.agent.tools",
 ) -> Any:
-    """为 class-based 工具记录一次调用（参数 + 输出）。
+    """记录一次工具调用的参数和输出。
 
-    agent 的工具是类方法，无法套用旧的函数装饰器，这里提供一个可直接调用的
-    日志助手：传入工具名、（已脱敏前的）参数字典和结果，统一写入工具日志。
+    适用于调用点已取得工具名、参数字典和结果的场景，写入前统一脱敏。
 
     返回原始 result，方便链式书写：return await log_tool_call_result(...)
     """
@@ -105,10 +104,7 @@ async def log_tool_call_result(
 
 
 def log_tool_call(logger_name: str = "app.agent.tools"):
-    """为工具函数记录调用时间、参数、输出和异常。
-
-    （保留旧版函数装饰器，可用于普通同步/异步函数。）
-    """
+    """为普通同步或异步函数记录调用时间、参数、输出和异常。"""
 
     def decorator(func):
         signature = inspect.signature(func)

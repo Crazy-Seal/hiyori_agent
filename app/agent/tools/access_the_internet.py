@@ -16,7 +16,7 @@ def _load_tavily_api_key() -> str | None:
     """读取 Tavily API Key。
 
     优先从项目根 .env 读取，再回退到进程环境变量。
-    （系统环境变量里可能没有该键，或残留了过期的旧值，故显式加载 .env。）
+    （系统环境变量可能缺少该键或包含过期值，因此显式加载 .env。）
     """
     key = ""
     if _ENV_PATH.exists():

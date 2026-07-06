@@ -7,7 +7,7 @@ from app.schemas.chat_settings import ChatSettings
 def build_agent(chat_settings: ChatSettings) -> Agent:
     """根据会话配置构造一个 Agent。"""
     plugins = ["context_window"]
-    # 记忆默认随 memory_plugins 开启（与旧语义一致：未配置则不挂记忆）
+    # 未配置记忆能力时不加载相关插件
     if chat_settings.memory_plugins:
         plugins.append("memory")
 

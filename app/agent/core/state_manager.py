@@ -44,7 +44,7 @@ class StateManager:
         return self._db
 
     async def _init_tables(self) -> None:
-        """初始化表，并把旧表中的历史 checkpoint 安全迁移为完成态。"""
+        """初始化 checkpoint 表和查询索引。"""
         db = await self._get_db()
         await db.execute("""
             CREATE TABLE IF NOT EXISTS checkpoints (
@@ -57,18 +57,6 @@ class StateManager:
             )
         """)
 
-        async with db.execute("PRAGMA table_info(checkpoints)") as cursor:
-            columns = {row[1] for row in await cursor.fetchall()}
-        if "checkpoint_type" not in columns:
-            # 历史数据无法可靠判断执行阶段，统一视为完成态以避免误删。
-            await db.execute("""
-                ALTER TABLE checkpoints
-                ADD COLUMN checkpoint_type TEXT NOT NULL DEFAULT 'completed'
-                    CHECK(checkpoint_type IN ('intermediate', 'completed'))
-            """)
-
-        # 加载已改按 ID 排序，移除旧的 created_at 索引以避免重复维护。
-        await db.execute("DROP INDEX IF EXISTS idx_checkpoints_session")
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_checkpoints_session_type_id
             ON checkpoints(session_id, checkpoint_type, id DESC)
