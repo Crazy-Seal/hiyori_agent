@@ -5,6 +5,7 @@
 import "../settings.css";
 
 import { ConfirmDialog } from "./components/confirm-dialog.js";
+import { SettingsToast, appendErrorMessage } from "./components/settings-toast.js";
 import { ModelPage } from "./pages/model-page.js";
 import { LlmPage } from "./pages/llm-page.js";
 import { ToolsPage } from "./pages/tools-page.js";
@@ -35,6 +36,7 @@ class SettingsApp {
   private multimodalPage: MultimodalPage;
   private motionPage: ISettingsPage;
   private confirmDialog: ConfirmDialog;
+  private toast: SettingsToast;
 
   private currentPage = "model";
 
@@ -51,6 +53,7 @@ class SettingsApp {
     this.sidebar = this.getElement("#settings-sidebar");
     this.minBtn = this.getElement("#settings-min-btn");
     this.closeBtn = this.getElement("#settings-close-btn");
+    this.toast = new SettingsToast(this.getElement("#settings-toast"));
 
     // 初始化确认对话框
     this.confirmDialog = new ConfirmDialog(
@@ -74,7 +77,8 @@ class SettingsApp {
       this.getElement("#slider-offset-x-value"),
       this.getElement("#slider-offset-y-value"),
       this.getElement("#checkbox-follow-cursor"),
-      this.confirmDialog
+      this.confirmDialog,
+      this.toast
     );
 
     // 初始化 LLM 配置页面
@@ -188,6 +192,7 @@ class SettingsApp {
       if (typeof unsubscribeModelChanged === "function") {
         unsubscribeModelChanged();
       }
+      this.toast.dispose();
     });
   }
 
@@ -263,8 +268,13 @@ class SettingsApp {
     }
 
     if (pageName === "tools") {
-      const result = await window.desktopPetApi.getAvailableTools();
-      deps.availableTools = result.tools;
+      try {
+        const result = await window.desktopPetApi.getAvailableTools();
+        deps.availableTools = result.tools;
+      } catch (error) {
+        this.toast.error(appendErrorMessage("读取工具列表失败", error));
+        deps.availableTools = [];
+      }
     }
 
     return deps;
@@ -331,17 +341,22 @@ class SettingsApp {
     // 获取当前表单数据
     const editingData = page.getEditingData();
 
-    // 构建并保存
-    if (pageName === "llm" && editingData.llm) {
-      await this.saveLlmSettings(editingData.llm);
-    } else if (pageName === "motion" && editingData.motion) {
-      await this.saveMotionSettings(editingData.motion);
-    } else if (pageName === "tools" && editingData.tools) {
-      await this.saveToolsSettings(editingData.tools);
-    }
+    try {
+      if (pageName === "llm" && editingData.llm) {
+        await this.saveLlmSettings(editingData.llm);
+      } else if (pageName === "motion" && editingData.motion) {
+        await this.saveMotionSettings(editingData.motion);
+      } else if (pageName === "tools" && editingData.tools) {
+        await this.saveToolsSettings(editingData.tools);
+      } else {
+        return;
+      }
 
-    // 重新渲染当前页面
-    await this.renderPage(pageName);
+      this.toast.success("修改成功");
+      await this.renderPage(pageName);
+    } catch (error) {
+      this.toast.error(appendErrorMessage("修改失败", error));
+    }
   }
 
   /**
@@ -380,7 +395,7 @@ class SettingsApp {
    */
   private async saveMotionSettings(motionData: NonNullable<EditingState["motion"]>): Promise<void> {
     if (!this.modelConfig) {
-      return;
+      throw new Error("模型配置尚未加载");
     }
 
     const activeModelId = this.modelConfig.activeModelId;
@@ -487,15 +502,24 @@ class SettingsApp {
   /**
    * 初始化聊天设置
    */
-  private async initChatSettings(): Promise<void> {
-    this.savedState = await window.desktopPetApi.getChatSettings();
+  private async initChatSettings(clearCurrent = false): Promise<boolean> {
+    if (clearCurrent) {
+      this.savedState = null;
+    }
+    try {
+      this.savedState = await window.desktopPetApi.getChatSettings();
+      return true;
+    } catch (error) {
+      this.toast.error(appendErrorMessage("读取聊天设置失败", error));
+      return false;
+    }
   }
 
   /**
    * 模型变化后刷新
    */
   private async refreshAfterModelChanged(): Promise<void> {
-    await Promise.all([this.modelPage.refreshModelConfig(), this.initChatSettings()]);
+    await Promise.all([this.modelPage.refreshModelConfig(), this.initChatSettings(true)]);
     // 获取最新的模型配置
     this.modelConfig = await window.desktopPetApi.getModelConfig();
     // 渲染当前页面

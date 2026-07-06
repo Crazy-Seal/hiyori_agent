@@ -39,7 +39,6 @@ import {
   fetchChatHistoryPageBySessionId,
   fetchChatHistoryLastN,
   updateChatSettings,
-  updateChatSettingsCache,
   clearChatSettingsCache,
   fetchAvailableTools,
 } from "./chat-settings.js";
@@ -196,23 +195,6 @@ export const registerIpcHandlers = (): void => {
 
   // 更新聊天设置
   ipcMain.handle("desktop-pet:update-chat-settings", async (_event, payload: ChatSettingsData) => {
-    updateChatSettingsCache({
-      session_id: payload.session_id,
-      model_name: payload.model_name,
-      openai_api_key: payload.openai_api_key,
-      openai_base_url: payload.openai_base_url,
-      temperature: payload.temperature,
-      system_prompt: payload.system_prompt,
-      tools_list: [...payload.tools_list],
-      memory_plugins: payload.memory_plugins ? [...payload.memory_plugins] : null,
-      name: payload.name,
-      feature: payload.feature,
-      character: payload.character,
-      address: payload.address,
-      characteristic: payload.characteristic,
-      constraint: payload.constraint,
-    });
-
     return await updateChatSettings(payload);
   });
 

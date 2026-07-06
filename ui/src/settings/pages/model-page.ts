@@ -4,6 +4,10 @@
 
 import type { ModelConfig, ImportPreview } from "../types.js";
 import { ConfirmDialog } from "../components/confirm-dialog.js";
+import {
+  appendErrorMessage,
+  type SettingsNotifier,
+} from "../components/settings-toast.js";
 
 /**
  * 模型管理页面管理器
@@ -42,7 +46,8 @@ export class ModelPage {
     offsetXValue: HTMLSpanElement,
     offsetYValue: HTMLSpanElement,
     followCursorCheckbox: HTMLInputElement,
-    confirmDialog: ConfirmDialog
+    confirmDialog: ConfirmDialog,
+    private readonly notifier: SettingsNotifier
   ) {
     this.modelList = modelList;
     this.importPreview = importPreview;
@@ -114,8 +119,13 @@ export class ModelPage {
           return;
         }
 
-        await window.desktopPetApi.deleteModel(modelId);
-        await this.refreshAfterModelChanged();
+        try {
+          await window.desktopPetApi.deleteModel(modelId);
+          await this.refreshAfterModelChanged();
+          this.notifier.success("模型及配置删除成功");
+        } catch (error) {
+          this.notifier.error(appendErrorMessage("模型及配置删除失败", error));
+        }
         return;
       }
 

@@ -4,6 +4,7 @@ node_modules/
 # Build outputs
 dist/
 dist-electron/
+.test-dist/
 
 # Local user/runtime data
 user_data/

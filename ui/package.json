@@ -7,6 +7,7 @@
   "scripts": {
     "prepare:live2d": "node scripts/prepare-live2d.mjs",
     "typecheck": "tsc -p tsconfig.json && tsc --noEmit -p tsconfig.electron.json && tsc -p tsconfig.preload.json",
+    "test:unit": "tsc -p tsconfig.test.json && node --test .test-dist/tests/*.test.js",
     "build:electron": "tsc -p tsconfig.electron.json && vite build --config vite.preload.config.ts",
     "dev": "npm run prepare:live2d && npm run build:electron && run-p dev:renderer dev:electron",
     "dev:renderer": "vite",

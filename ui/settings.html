@@ -17,6 +17,19 @@
           <button id="settings-close-btn" class="window-btn window-btn-close" type="button" aria-label="关闭">✕</button>
         </div>
       </header>
+      <div
+        id="settings-toast"
+        class="settings-toast"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        hidden
+      >
+        <svg class="settings-toast-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path></path>
+        </svg>
+        <span class="settings-toast-message"></span>
+      </div>
       <div class="settings-layout">
         <aside class="settings-sidebar" id="settings-sidebar">
           <button class="settings-tab active" type="button" data-page="model">模型管理</button>

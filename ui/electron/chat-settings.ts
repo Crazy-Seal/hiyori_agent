@@ -262,8 +262,6 @@ export const clearChatSettingsCache = (): void => {
 export const updateChatSettings = async (
   payload: ChatSettingsData
 ): Promise<ApiResponse<never>> => {
-  updateChatSettingsCache(payload);
-
   const res = await fetch(`${BACKEND_BASE_URL}/chat_settings`, {
     method: "PUT",
     headers: {
@@ -281,6 +279,8 @@ export const updateChatSettings = async (
   if (!result || result.code !== 200) {
     throw new Error(result?.msg || "更新 chat_settings 失败：返回格式错误");
   }
+
+  updateChatSettingsCache(payload);
 
   return {
     msg: result.msg ?? "success",
