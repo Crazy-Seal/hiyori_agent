@@ -9,6 +9,30 @@ from app.agent.state import AgentState
 from app.agent.utils.domain.images import get_image_task
 
 
+def test_vlm_default_config(monkeypatch) -> None:
+    monkeypatch.setenv("VLM_API_KEY", "test-key")
+    monkeypatch.delenv("VLM_BASE_URL", raising=False)
+    monkeypatch.delenv("VLM_MODEL", raising=False)
+
+    assert vlm._vlm_config() == (
+        "test-key",
+        "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "qwen3-vl-plus",
+    )
+
+
+def test_vlm_environment_overrides_defaults(monkeypatch) -> None:
+    monkeypatch.setenv("VLM_API_KEY", "test-key")
+    monkeypatch.setenv("VLM_BASE_URL", "http://vlm.test/v1")
+    monkeypatch.setenv("VLM_MODEL", "test-vlm")
+
+    assert vlm._vlm_config() == (
+        "test-key",
+        "http://vlm.test/v1",
+        "test-vlm",
+    )
+
+
 def test_vlm_client_is_closed(monkeypatch) -> None:
     clients = []
 

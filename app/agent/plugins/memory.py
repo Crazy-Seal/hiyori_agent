@@ -13,11 +13,12 @@ import uuid
 
 from app.agent.context import BasePlugin, PluginHook, HookContext
 from app.agent.memory.manager import get_memory_manager
-from app.agent.message import messages_from_openai_format
+from app.agent.message import (
+    is_real_human_message,
+    messages_from_openai_format,
+)
 from app.agent.models.vlm import generate_multiple_image_descriptions
 from app.agent.utils.infra.background_tasks import create_background_task
-from app.agent.utils.domain.window import is_real_human
-from app.agent.utils.infra.constants import SUMMARY_EVERY_HUMAN_MESSAGES
 from app.agent.utils.domain.images import (
     ImageTaskResult,
     cancel_task,
@@ -29,6 +30,8 @@ from app.agent.utils.domain.images import (
 from app.agent.utils.domain.text import extract_text, get_last_human_text, split_context
 
 logger = logging.getLogger(__name__)
+
+SUMMARY_EVERY_HUMAN_MESSAGES = 10
 
 MEMORY_PREAMBLE = (
     "以下文本是你的记忆，其中，[你的历史日记和摘要]是你对前段时间和当前对话的记忆，"
@@ -67,7 +70,7 @@ class MemoryPlugin(BasePlugin):
 
     def _start_image_description(self, state) -> None:
         target = next(
-            (msg for msg in reversed(state.messages) if is_real_human(msg)),
+            (msg for msg in reversed(state.messages) if is_real_human_message(msg)),
             None,
         )
         if target is None:
@@ -186,7 +189,7 @@ class MemoryPlugin(BasePlugin):
         """
         last_human_idx = -1
         for i in range(len(messages) - 1, -1, -1):
-            if is_real_human(messages[i]):
+            if is_real_human_message(messages[i]):
                 last_human_idx = i
                 break
         if last_human_idx < 0:

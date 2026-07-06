@@ -10,6 +10,28 @@ from enum import Enum
 import json
 
 
+SCREENSHOT_MESSAGE_NAME = "system_screenshot"
+SCREENSHOT_COMPRESSED_NAME = "system_screenshot_compressed"
+
+
+def is_user_message(message: dict) -> bool:
+    """判断消息是否使用 user 角色。"""
+    return isinstance(message, dict) and message.get("role") == "user"
+
+
+def is_screenshot_message(message: dict) -> bool:
+    """判断消息是否为原始截图或已压缩截图。"""
+    return is_user_message(message) and message.get("name") in (
+        SCREENSHOT_MESSAGE_NAME,
+        SCREENSHOT_COMPRESSED_NAME,
+    )
+
+
+def is_real_human_message(message: dict) -> bool:
+    """判断消息是否为真实用户输入，而不是系统注入的截图。"""
+    return is_user_message(message) and not is_screenshot_message(message)
+
+
 class MessageRole(str, Enum):
     """消息角色"""
     SYSTEM = "system"

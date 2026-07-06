@@ -14,10 +14,15 @@ import pytest
 from app.agent.agent import AgentConfig
 from app.agent.context import BaseTool, ToolResult
 from app.agent.core.event_router import EventRouter, EventType
-from app.agent.core.pipeline import ExecutionPipeline, SCREENSHOT_MESSAGE_NAME
+from app.agent.core.pipeline import ExecutionPipeline
 from app.agent.core.plugin_manager import PluginManager
 from app.agent.core.tool_manager import ToolManager
-from app.agent.message import ToolCall, MessageRole, AssistantMessageWithTools
+from app.agent.message import (
+    SCREENSHOT_MESSAGE_NAME,
+    AssistantMessageWithTools,
+    MessageRole,
+    ToolCall,
+)
 from app.agent.state import AgentState
 from app.agent.models.llm_client import LLMClient, LLMConfig, StreamChunk
 

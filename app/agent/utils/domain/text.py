@@ -9,8 +9,7 @@
 
 import logging
 
-# 截图判定与"真实人类消息"谓词统一在 domain.window，避免重复定义与语义分歧
-from app.agent.utils.domain.window import is_user, is_real_human
+from app.agent.message import is_real_human_message, is_user_message
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +38,7 @@ def get_last_human_text(messages: list[dict]) -> str:
     注意：截图消息不计入用户消息。
     """
     for msg in reversed(messages):
-        if is_real_human(msg):
+        if is_real_human_message(msg):
             return extract_text(msg.get("content"))
     return ""
 
@@ -64,7 +63,7 @@ def split_context(
     # 过滤截图消息后的人类消息索引
     human_indices = [
         idx for idx, msg in enumerate(messages)
-        if is_real_human(msg)
+        if is_real_human_message(msg)
     ]
     if not human_indices:
         return [], []
@@ -76,7 +75,7 @@ def split_context(
     before_messages = messages[:later_start_idx]
     before_human_indices = [
         idx for idx, msg in enumerate(before_messages)
-        if is_real_human(msg)
+        if is_real_human_message(msg)
     ]
     if not before_human_indices:
         return [], later_messages
@@ -91,7 +90,7 @@ def extract_multimodal_signals(messages: list[dict]) -> list[str]:
     """从消息中提取可持久化的多模态信号文本。"""
     signals: list[str] = []
     for msg in messages:
-        if not is_user(msg):
+        if not is_user_message(msg):
             continue
         content = msg.get("content")
         if not isinstance(content, list):

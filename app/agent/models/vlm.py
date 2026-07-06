@@ -14,10 +14,12 @@ from typing import Any, cast
 
 from openai import AsyncOpenAI
 
-from app.agent.utils.infra.constants import VLM_DEFAULT_MODEL, VLM_DEFAULT_BASE_URL
 from app.agent.utils.domain.images import ImageTaskResult, save_multiple_images
 
 logger = logging.getLogger(__name__)
+
+VLM_DEFAULT_MODEL = "qwen3-vl-plus"
+VLM_DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
 _LOCATE_SYSTEM_PROMPT = (
     "你是一个PC屏幕视觉分析助手。你的任务是根据用户的文字描述，"

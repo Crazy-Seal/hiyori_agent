@@ -18,6 +18,7 @@ from app.agent.context import (
 )
 from app.agent.core.event_router import EventType, AgentEvent
 from app.agent.message import (
+    SCREENSHOT_MESSAGE_NAME,
     ToolCall,
     Message,
     ContentPart,
@@ -27,9 +28,6 @@ from app.agent.message import (
 from app.agent.state import AgentState
 from app.agent.models.llm_client import StreamChunk
 from app.agent.core.state_manager import CheckpointType
-# 注入截屏/屏幕图片时使用的消息名（ContextWindowPlugin 据此做 TTL 压缩）
-from app.agent.utils.infra.constants import SCREENSHOT_MESSAGE_NAME
-
 if TYPE_CHECKING:
     from app.agent.agent import Agent
 
