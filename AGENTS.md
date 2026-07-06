@@ -2,6 +2,8 @@
 
 ## Project Structure & Module Organization
 
+This is a single-user, local standalone application. Architecture and feature decisions should target local desktop use and must not assume multi-user, distributed, or remote-deployment requirements unless explicitly requested.
+
 The FastAPI backend starts in `main.py`. Application code lives under `app/`: HTTP endpoints are in `routes/`, request and response models in `schemas/`, persistence in `crud/`, orchestration in `services/`, and agent, tool, plugin, and memory implementations in `agent/`. Backend tests are in `tests/`. The Electron/Vite frontend is under `ui/`; renderer code is in `ui/src/`, Electron main-process code in `ui/electron/`, and static Live2D assets in `ui/public/`. Runtime state belongs in `memory/`, not source control. Configuration samples live in `config/` and `.env.sample`.
 
 ## Build, Test, and Development Commands
