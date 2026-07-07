@@ -63,3 +63,19 @@ test("前端默认 memory 插件为固有启用", () => {
   assert.equal(defaults.context_window.enabled, true);
   assert.equal(defaults.memory.enabled, true);
 });
+
+test("更新 ChatSettings 时不再发送旧记忆插件字段", async () => {
+  let requestBody: Record<string, unknown> | null = null;
+  globalThis.fetch = async (_input, init) => {
+    requestBody = JSON.parse(String(init?.body));
+    return new Response(JSON.stringify({ code: 200, msg: "success" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  await updateChatSettings(savedSettings);
+
+  assert.ok(requestBody);
+  assert.equal(Object.hasOwn(requestBody, "memory" + "_plugins"), false);
+});

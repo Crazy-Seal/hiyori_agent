@@ -56,7 +56,6 @@ export type ChatSettingsData = {
   temperature: number;
   system_prompt: string;
   tools_list: string[];
-  memory_plugins?: string[] | null;
   agent_plugins?: Record<string, AgentPluginSettings> | null;
   name?: string | null;
   feature?: string | null;

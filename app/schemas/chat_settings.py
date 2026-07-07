@@ -41,43 +41,6 @@ def _validate_plugin_config(name: str, config: dict[str, Any]) -> dict[str, Any]
     return config_model(**config).model_dump()
 
 
-def _legacy_memory_config(memory_plugins: list[str] | None) -> tuple[bool, dict[str, Any]]:
-    if not memory_plugins:
-        return False, dict(MEMORY_DEFAULT_CONFIG)
-
-    names = set(memory_plugins)
-    config = dict(MEMORY_DEFAULT_CONFIG)
-    config["enable_diary"] = "diary" in names or "summary" in names
-    config["enable_episodic"] = "episodic" in names
-    config["enable_semantic"] = "semantic" in names
-
-    # 兼容未知旧值：只要旧字段非空，就按默认记忆能力启用 memory 插件。
-    if not any(
-        config[key]
-        for key in ("enable_diary", "enable_episodic", "enable_semantic")
-    ):
-        config.update(MEMORY_DEFAULT_CONFIG)
-    return True, config
-
-
-def _memory_plugins_from_agent_plugins(
-    agent_plugins: dict[str, AgentPluginSettings],
-) -> list[str] | None:
-    memory = agent_plugins.get("memory")
-    if not memory or not memory.enabled:
-        return None
-
-    config = _merge_plugin_config(MEMORY_DEFAULT_CONFIG, memory.config)
-    names: list[str] = []
-    if config.get("enable_diary"):
-        names.append("diary")
-    if config.get("enable_episodic"):
-        names.append("episodic")
-    if config.get("enable_semantic"):
-        names.append("semantic")
-    return names or None
-
-
 class ChatSettings(BaseModel):
     session_id: str
     model_name: str
@@ -86,7 +49,6 @@ class ChatSettings(BaseModel):
     temperature: float
     system_prompt: str
     tools_list: list[str]
-    memory_plugins: list[str] | None = None
     agent_plugins: dict[str, AgentPluginSettings] | None = None
     skills: list[str] | None = None
 
@@ -115,12 +77,9 @@ class ChatSettings(BaseModel):
 
         memory = plugins.get("memory")
         if memory is None:
-            enabled, memory_config = _legacy_memory_config(self.memory_plugins)
-            if not enabled:
-                memory_config = dict(MEMORY_DEFAULT_CONFIG)
             plugins["memory"] = AgentPluginSettings(
                 enabled=True,
-                config=_validate_plugin_config("memory", memory_config),
+                config=_validate_plugin_config("memory", dict(MEMORY_DEFAULT_CONFIG)),
             )
         else:
             plugins["memory"] = AgentPluginSettings(
@@ -140,7 +99,6 @@ class ChatSettings(BaseModel):
             )
 
         self.agent_plugins = plugins
-        self.memory_plugins = _memory_plugins_from_agent_plugins(plugins)
         return self
 
     def __hash__(self):
@@ -152,7 +110,6 @@ class ChatSettings(BaseModel):
             self.temperature,
             self.system_prompt,
             tuple(self.tools_list),
-            tuple(self.memory_plugins or []),
             tuple(
                 (name, settings.enabled, tuple(sorted(settings.config.items())))
                 for name, settings in sorted(self.agent_plugins.items())

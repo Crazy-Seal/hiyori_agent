@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import yaml
 import pytest
 from pydantic import ValidationError
 
@@ -20,7 +19,6 @@ def test_skills_survive_round_trip(tmp_path: Path) -> None:
         temperature=0.1,
         system_prompt="test",
         tools_list=[],
-        memory_plugins=None,
         skills=["coding"],
     )
 
@@ -31,40 +29,7 @@ def test_skills_survive_round_trip(tmp_path: Path) -> None:
     assert reloaded.agent_plugins["memory"].enabled is True
 
 
-def test_legacy_memory_plugins_are_migrated_to_agent_plugins(tmp_path: Path) -> None:
-    config_file = tmp_path / "chat_settings.yaml"
-    config_file.write_text(
-        yaml.safe_dump(
-            {
-                "chat_models": [
-                    {
-                        "session_id": "legacy-session",
-                        "model_name": "test-model",
-                        "openai_api_key": "test-key",
-                        "openai_base_url": "http://127.0.0.1:1/v1",
-                        "temperature": 0.1,
-                        "system_prompt": "test",
-                        "tools_list": [],
-                        "memory_plugins": ["diary", "semantic"],
-                    }
-                ]
-            },
-            allow_unicode=True,
-        ),
-        encoding="utf-8",
-    )
-
-    settings = ChatSettingsDao(config_file=config_file).get_chat_settings("legacy-session")
-
-    assert settings.agent_plugins["context_window"].enabled is True
-    memory = settings.agent_plugins["memory"]
-    assert memory.enabled is True
-    assert memory.config["enable_diary"] is True
-    assert memory.config["enable_episodic"] is False
-    assert memory.config["enable_semantic"] is True
-
-
-def test_agent_plugins_round_trip_and_sync_memory_plugins(tmp_path: Path) -> None:
+def test_agent_plugins_round_trip_without_legacy_memory_field(tmp_path: Path) -> None:
     config_file = tmp_path / "chat_settings.yaml"
     config_file.write_text("chat_models: []\n", encoding="utf-8")
     dao = ChatSettingsDao(config_file=config_file)
@@ -76,7 +41,6 @@ def test_agent_plugins_round_trip_and_sync_memory_plugins(tmp_path: Path) -> Non
         temperature=0.1,
         system_prompt="test",
         tools_list=[],
-        memory_plugins=None,
         agent_plugins={
             "memory": AgentPluginSettings(
                 enabled=True,
@@ -93,9 +57,10 @@ def test_agent_plugins_round_trip_and_sync_memory_plugins(tmp_path: Path) -> Non
 
     dao.add_chat_settings(settings)
     reloaded = ChatSettingsDao(config_file=config_file).get_chat_settings("test-session")
+    raw_yaml = config_file.read_text(encoding="utf-8")
 
-    assert reloaded.memory_plugins == ["episodic", "semantic"]
     assert reloaded.agent_plugins["memory"].config["summary_every_human_messages"] == 12
+    assert "memory" + "_plugins" not in raw_yaml
 
 
 def test_memory_plugin_is_inherent_even_when_disabled_or_all_types_disabled() -> None:
@@ -124,7 +89,6 @@ def test_memory_plugin_is_inherent_even_when_disabled_or_all_types_disabled() ->
     assert memory.config["enable_diary"] is False
     assert memory.config["enable_episodic"] is False
     assert memory.config["enable_semantic"] is False
-    assert settings.memory_plugins is None
 
 
 def test_agent_plugin_config_is_validated_before_persistence() -> None:

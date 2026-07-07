@@ -108,9 +108,6 @@ export const fetchChatSettingsBySessionId = async (
     tools_list: Array.isArray(result.data.tools_list)
       ? result.data.tools_list.map((item) => String(item))
       : [],
-    memory_plugins: Array.isArray(result.data.memory_plugins)
-      ? result.data.memory_plugins.map((item) => String(item))
-      : null,
     agent_plugins: normalizeAgentPlugins(result.data.agent_plugins),
     name: result.data.name ?? null,
     feature: result.data.feature ?? null,
@@ -224,7 +221,6 @@ export const createEmptyChatSettings = async (sessionId: string): Promise<void> 
     temperature: 0,
     system_prompt: "",
     tools_list: [],
-    memory_plugins: null,
     agent_plugins: DEFAULT_AGENT_PLUGINS,
     name: null,
     feature: null,

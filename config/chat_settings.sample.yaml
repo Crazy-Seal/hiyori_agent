@@ -10,7 +10,6 @@ chat_models:
   - search_diary
   - access_the_internet
   - screenshot
-  memory_plugins: null
   agent_plugins:
     context_window:
       enabled: true
@@ -21,7 +20,7 @@ chat_models:
         max_screenshots_in_context: 2
         screenshot_ttl_human_messages: 2
     memory:
-      enabled: false
+      enabled: true
       config:
         enable_diary: true
         enable_episodic: true
