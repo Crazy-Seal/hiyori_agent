@@ -9,6 +9,7 @@ import { SettingsToast, appendErrorMessage } from "./components/settings-toast.j
 import { ModelPage } from "./pages/model-page.js";
 import { LlmPage } from "./pages/llm-page.js";
 import { ToolsPage } from "./pages/tools-page.js";
+import { PluginsPage } from "./pages/plugins-page.js";
 import { MultimodalPage } from "./pages/multimodal-page.js";
 import { MotionPage } from "./pages/motion-page.js";
 import type {
@@ -19,7 +20,6 @@ import type {
   PageRenderData,
   PageEventCallback,
   PageEvent,
-  ToolItem,
 } from "./types.js";
 
 /**
@@ -33,6 +33,7 @@ class SettingsApp {
   private modelPage: ModelPage;
   private llmPage: ISettingsPage;
   private toolsPage: ISettingsPage;
+  private pluginsPage: ISettingsPage;
   private multimodalPage: MultimodalPage;
   private motionPage: ISettingsPage;
   private confirmDialog: ConfirmDialog;
@@ -104,6 +105,13 @@ class SettingsApp {
       this.getElement("#tools-confirm-btn")
     );
 
+    // 初始化插件配置页面
+    this.pluginsPage = new PluginsPage(
+      this.getElement("#plugins-list"),
+      this.getElement("#plugins-empty"),
+      this.getElement("#plugins-confirm-btn")
+    );
+
     // 初始化多模态配置页面
     this.multimodalPage = new MultimodalPage(
       this.getElement("#checkbox-hide-on-screenshot")
@@ -120,6 +128,7 @@ class SettingsApp {
     // 注册页面到映射
     this.pages.set("llm", this.llmPage);
     this.pages.set("tools", this.toolsPage);
+    this.pages.set("memory", this.pluginsPage);
     this.pages.set("motion", this.motionPage);
 
     // 设置事件回调
@@ -128,6 +137,7 @@ class SettingsApp {
     };
     this.llmPage.onEvent(eventCallback);
     this.toolsPage.onEvent(eventCallback);
+    this.pluginsPage.onEvent(eventCallback);
     this.motionPage.onEvent(eventCallback);
 
     this.setupEventListeners();
@@ -277,6 +287,16 @@ class SettingsApp {
       }
     }
 
+    if (pageName === "memory") {
+      try {
+        const result = await window.desktopPetApi.getAvailablePlugins();
+        deps.availablePlugins = result.plugins;
+      } catch (error) {
+        this.toast.error(appendErrorMessage("读取插件列表失败", error));
+        deps.availablePlugins = [];
+      }
+    }
+
     return deps;
   }
 
@@ -348,6 +368,8 @@ class SettingsApp {
         await this.saveMotionSettings(editingData.motion);
       } else if (pageName === "tools" && editingData.tools) {
         await this.saveToolsSettings(editingData.tools);
+      } else if (pageName === "memory" && editingData.plugins) {
+        await this.savePluginSettings(editingData.plugins);
       } else {
         return;
       }
@@ -436,6 +458,23 @@ class SettingsApp {
     const newState: ChatSettingsState = {
       ...this.savedState,
       tools_list: toolsData.tools_list,
+    };
+
+    await window.desktopPetApi.updateChatSettings(newState);
+    this.savedState = newState;
+  }
+
+  /**
+   * 保存插件设置
+   */
+  private async savePluginSettings(pluginsData: NonNullable<EditingState["plugins"]>): Promise<void> {
+    if (!this.savedState) {
+      return;
+    }
+
+    const newState: ChatSettingsState = {
+      ...this.savedState,
+      agent_plugins: pluginsData.agent_plugins,
     };
 
     await window.desktopPetApi.updateChatSettings(newState);

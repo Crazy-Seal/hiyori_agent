@@ -7,13 +7,63 @@ import {
   CHAT_HISTORY_PAGE_SIZE,
   CHAT_HISTORY_MAX_PAGES,
 } from "./config.js";
-import type { ChatSettingsData, ChatHistoryItem, ApiResponse, ToolItem } from "./types.js";
+import type { ChatSettingsData, ChatHistoryItem, ApiResponse, ToolItem, PluginItem } from "./types.js";
 import { getActiveModelRecord } from "./model-manager.js";
 
 /**
  * 缓存的聊天设置
  */
 let chatSettingsCache: ChatSettingsData | null = null;
+
+const DEFAULT_AGENT_PLUGINS: NonNullable<ChatSettingsData["agent_plugins"]> = {
+  context_window: {
+    enabled: true,
+    config: {
+      recent_context_human_messages: 10,
+      max_images_in_context: 5,
+      image_ttl_human_messages: 10,
+      max_screenshots_in_context: 2,
+      screenshot_ttl_human_messages: 2,
+    },
+  },
+  memory: {
+    enabled: true,
+    config: {
+      enable_diary: true,
+      enable_episodic: true,
+      enable_semantic: true,
+      summary_every_human_messages: 10,
+    },
+  },
+};
+
+export const getDefaultAgentPluginsForTest = (): NonNullable<ChatSettingsData["agent_plugins"]> =>
+  JSON.parse(JSON.stringify(DEFAULT_AGENT_PLUGINS)) as NonNullable<ChatSettingsData["agent_plugins"]>;
+
+const normalizeAgentPlugins = (
+  value: Partial<ChatSettingsData>["agent_plugins"]
+): NonNullable<ChatSettingsData["agent_plugins"]> => {
+  const source = value && typeof value === "object" ? value : {};
+  const result: NonNullable<ChatSettingsData["agent_plugins"]> = {};
+  for (const [name, defaults] of Object.entries(DEFAULT_AGENT_PLUGINS)) {
+    const current = source[name];
+    result[name] = {
+      enabled: typeof current?.enabled === "boolean" ? current.enabled : defaults.enabled,
+      config: {
+        ...defaults.config,
+        ...(current?.config && typeof current.config === "object" ? current.config : {}),
+      },
+    };
+  }
+  for (const [name, current] of Object.entries(source)) {
+    if (result[name]) continue;
+    result[name] = {
+      enabled: Boolean(current?.enabled),
+      config: current?.config && typeof current.config === "object" ? current.config : {},
+    };
+  }
+  return result;
+};
 
 /**
  * 安全解析 JSON
@@ -61,6 +111,7 @@ export const fetchChatSettingsBySessionId = async (
     memory_plugins: Array.isArray(result.data.memory_plugins)
       ? result.data.memory_plugins.map((item) => String(item))
       : null,
+    agent_plugins: normalizeAgentPlugins(result.data.agent_plugins),
     name: result.data.name ?? null,
     feature: result.data.feature ?? null,
     character: result.data.character ?? null,
@@ -174,6 +225,7 @@ export const createEmptyChatSettings = async (sessionId: string): Promise<void> 
     system_prompt: "",
     tools_list: [],
     memory_plugins: null,
+    agent_plugins: DEFAULT_AGENT_PLUGINS,
     name: null,
     feature: null,
     character: null,
@@ -308,5 +360,31 @@ export const fetchAvailableTools = async (): Promise<ToolItem[]> => {
   return result.data.tools.map((item) => ({
     name: String(item.name ?? ""),
     description: String(item.description ?? ""),
+  }));
+};
+
+/**
+ * 获取可用插件列表
+ */
+export const fetchAvailablePlugins = async (): Promise<PluginItem[]> => {
+  const url = `${BACKEND_BASE_URL}/plugins`;
+  const res = await fetch(url, { method: "GET" });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `获取插件列表失败: ${res.status}`);
+  }
+
+  const result = await parseJsonSafe<ApiResponse<{ plugins: PluginItem[] }>>(res);
+  if (!result || result.code !== 200 || !result.data?.plugins) {
+    throw new Error(result?.msg || "获取插件列表失败：返回格式错误");
+  }
+
+  return result.data.plugins.map((item) => ({
+    name: String(item.name ?? ""),
+    description: String(item.description ?? ""),
+    inherent: Boolean(item.inherent),
+    default_config: item.default_config ?? {},
+    config_schema: item.config_schema ?? {},
   }));
 };

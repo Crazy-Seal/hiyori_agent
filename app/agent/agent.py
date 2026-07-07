@@ -6,7 +6,7 @@ Agent 核心类
 
 import logging
 from dataclasses import dataclass, field
-from typing import AsyncIterator
+from typing import Any, AsyncIterator
 
 from app.agent.state import AgentState
 from app.agent.message import ContentPart
@@ -37,7 +37,7 @@ class AgentConfig:
     max_tokens: int = 4096
     system_prompt: str = ""
     tools: list[str] = field(default_factory=list)
-    plugins: list[str] = field(default_factory=list)
+    plugins: list[str | dict[str, Any]] = field(default_factory=list)
     skills: list[str] = field(default_factory=list)
     mcp_servers: list[dict] = field(default_factory=list)
 

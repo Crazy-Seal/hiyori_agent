@@ -11,6 +11,7 @@ import type {
   ModelTransformData as SharedModelTransformData,
   MotionConfig as SharedMotionConfig,
   MotionSettingType as SharedMotionSettingType,
+  PluginItem as SharedPluginItem,
   ToolItem as SharedToolItem,
 } from "../../shared-types.js";
 
@@ -36,6 +37,7 @@ export type ChatSettingsState = ChatSettingsData;
  * 工具项
  */
 export type ToolItem = SharedToolItem;
+export type PluginItem = SharedPluginItem;
 
 /**
  * 前端设置
@@ -69,6 +71,9 @@ export interface EditingState {
   tools?: {
     tools_list: string[];
   };
+  plugins?: {
+    agent_plugins: NonNullable<ChatSettingsState["agent_plugins"]>;
+  };
 }
 
 /**
@@ -84,6 +89,7 @@ export interface PageRenderData {
     modelConfig?: ModelConfig;
     availableMotions?: string[];
     availableTools?: ToolItem[];
+    availablePlugins?: PluginItem[];
     expressionLabels?: string[];
   };
 }
@@ -95,6 +101,7 @@ export interface PageEditingData {
   llm?: EditingState["llm"];
   motion?: EditingState["motion"];
   tools?: EditingState["tools"];
+  plugins?: EditingState["plugins"];
 }
 
 /**

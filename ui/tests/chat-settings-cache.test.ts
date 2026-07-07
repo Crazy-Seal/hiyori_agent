@@ -3,6 +3,7 @@ import { afterEach, test } from "node:test";
 
 import {
   clearChatSettingsCache,
+  getDefaultAgentPluginsForTest,
   getChatSettingsCache,
   updateChatSettings,
   updateChatSettingsCache,
@@ -54,4 +55,11 @@ test("PUT 成功后更新 ChatSettings 缓存", async () => {
 
   await updateChatSettings(updatedSettings);
   assert.deepEqual(getChatSettingsCache(), updatedSettings);
+});
+
+test("前端默认 memory 插件为固有启用", () => {
+  const defaults = getDefaultAgentPluginsForTest();
+
+  assert.equal(defaults.context_window.enabled, true);
+  assert.equal(defaults.memory.enabled, true);
 });

@@ -35,7 +35,7 @@
           <button class="settings-tab active" type="button" data-page="model">模型管理</button>
           <button class="settings-tab" type="button" data-page="llm">LLM配置</button>
           <button class="settings-tab" type="button" data-page="motion">表情控制</button>
-          <button class="settings-tab" type="button" data-page="memory">会话记忆</button>
+          <button class="settings-tab" type="button" data-page="memory">插件管理</button>
           <button class="settings-tab" type="button" data-page="tools">工具调用</button>
           <button class="settings-tab" type="button" data-page="mcp">MCP</button>
           <button class="settings-tab" type="button" data-page="multimodal">多模态</button>
@@ -153,7 +153,13 @@
               <button id="motion-confirm-btn" type="button" class="motion-confirm-btn">保存配置</button>
             </div>
           </div>
-          <div class="settings-page" data-page="memory"><div class="page-placeholder">功能开发中</div></div>
+          <div class="settings-page" data-page="memory">
+            <div class="plugins-panel">
+              <div id="plugins-list" class="plugins-list"></div>
+              <div id="plugins-empty" class="plugins-empty" hidden>未发现可用插件</div>
+              <button id="plugins-confirm-btn" type="button" class="plugins-confirm-btn">保存插件配置</button>
+            </div>
+          </div>
           <div class="settings-page" data-page="tools">
             <div class="tools-panel">
               <div class="tools-table-wrap">

@@ -41,6 +41,7 @@ import {
   updateChatSettings,
   clearChatSettingsCache,
   fetchAvailableTools,
+  fetchAvailablePlugins,
 } from "./chat-settings.js";
 import { getMainWindow, getSettingsWindow, openSettingsWindow, openImagePreviewWindow } from "./window-manager.js";
 
@@ -202,6 +203,12 @@ export const registerIpcHandlers = (): void => {
   ipcMain.handle("desktop-pet:get-available-tools", async () => {
     const tools = await fetchAvailableTools();
     return { tools };
+  });
+
+  // 获取可用插件
+  ipcMain.handle("desktop-pet:get-available-plugins", async () => {
+    const plugins = await fetchAvailablePlugins();
+    return { plugins };
   });
 
   // 更新模型变换

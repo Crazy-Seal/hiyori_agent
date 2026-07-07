@@ -40,6 +40,7 @@ class ChatSettingsDao:
             system_prompt=item["system_prompt"],
             tools_list=item["tools_list"],
             memory_plugins=item.get("memory_plugins"),
+            agent_plugins=item.get("agent_plugins") or {},
             skills=item.get("skills"),
             # 提示词模板字段
             name=item.get("name"),

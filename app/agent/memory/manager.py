@@ -15,7 +15,7 @@ from app.agent.memory.store.chat_history_store import ChatHistoryStore
 from app.agent.message import Message, MessageRole
 from app.agent.utils.domain.text import extract_text
 from app.crud.chat_settings_dao import ChatSettingsDao
-from app.schemas.chat_settings import ChatSettings
+from app.schemas.chat_settings import MEMORY_DEFAULT_CONFIG, ChatSettings
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,7 @@ class MemoryManager:
         else:
             chat_settings_dao = ChatSettingsDao()
             self.chat_settings = chat_settings_dao.get_chat_settings(session_id)
+        self.memory_options = self._memory_options()
 
         # 初始化存储层
         self.chat_history_store = ChatHistoryStore(
@@ -60,16 +61,24 @@ class MemoryManager:
             day_boundary_hour=self.config.day_boundary_hour,
         )
 
-        # 初始化三种记忆
-        self.summary_memory = SummaryMemory(
-            session_id, self.config, self.chat_settings, self.chat_history_store
+        # 按开关初始化三种长期记忆；聊天记录存储始终启用。
+        self.summary_memory = (
+            SummaryMemory(
+                session_id, self.config, self.chat_settings, self.chat_history_store
+            )
+            if self.memory_options.get("enable_diary", True)
+            else None
         )
-        self.episodic_memory = EpisodicMemory(
-            session_id, self.config, self.chat_settings
+        self.episodic_memory = (
+            EpisodicMemory(session_id, self.config, self.chat_settings)
+            if self.memory_options.get("enable_episodic", True)
+            else None
         )
 
         # 初始化语义记忆 - 根据配置选择后端
-        if self.config.semantic_backend == "mem0":
+        if not self.memory_options.get("enable_semantic", True):
+            self.semantic_memory = None
+        elif self.config.semantic_backend == "mem0":
             self.semantic_memory = Mem0SemanticMemory(
                 session_id, self.config, self.chat_settings
             )
@@ -84,6 +93,9 @@ class MemoryManager:
         self,
         messages: list[Message],
         history: list[Message] | None = None,
+        *,
+        enable_episodic: bool = True,
+        enable_semantic: bool = True,
     ) -> dict[str, int]:
         """添加记忆 - 只处理情景记忆和语义记忆
 
@@ -100,6 +112,8 @@ class MemoryManager:
 
         async def process_episodic() -> int:
             """处理情景记忆"""
+            if not enable_episodic or self.episodic_memory is None:
+                return 0
             try:
                 episodic_ids = await self.episodic_memory.add(messages_text, history_text)
                 return len(episodic_ids)
@@ -109,6 +123,8 @@ class MemoryManager:
 
         async def process_semantic() -> int:
             """处理语义记忆"""
+            if not enable_semantic or self.semantic_memory is None:
+                return 0
             try:
                 if self.config.semantic_backend == "mem0":
                     # Mem0 后端：传递 Message 对象
@@ -135,6 +151,8 @@ class MemoryManager:
         ai_messages: list[dict[str, Any]],
         image_description: str | None = None,
         image_filenames: list[str] | None = None,
+        *,
+        enable_diary: bool = True,
     ) -> None:
         """保存本轮对话并触发摘要/日记检查
 
@@ -174,9 +192,17 @@ class MemoryManager:
                 )
 
         # 3. SummaryMemory 检查并生成摘要/日记
-        await self.summary_memory.check_and_generate(today)
+        if enable_diary and self.summary_memory is not None:
+            await self.summary_memory.check_and_generate(today)
 
-    async def get_context(self, query: str = "") -> str:
+    async def get_context(
+        self,
+        query: str = "",
+        *,
+        include_diary: bool = True,
+        include_episodic: bool = True,
+        include_semantic: bool = True,
+    ) -> str:
         """获取当前对话上下文
 
         组装顺序：
@@ -197,19 +223,20 @@ class MemoryManager:
         today = self._get_effective_date(now)
 
         # 1. 摘要部分
-        summary_context = await self.summary_memory.get_context(today)
-        if summary_context:
-            parts.append(f"[你的历史日记和摘要]\n{summary_context}\n")
+        if include_diary and self.summary_memory is not None:
+            summary_context = await self.summary_memory.get_context(today)
+            if summary_context:
+                parts.append(f"[你的历史日记和摘要]\n{summary_context}\n")
 
         # 2. 情景记忆
-        if query.strip():
+        if include_episodic and self.episodic_memory is not None and query.strip():
             episodic_memories = await self.episodic_memory.search(query, self.config.episodic_top_k)
             if episodic_memories:
                 memory_texts = [f"- {m.content}（{m.timestamp.strftime('%Y-%m-%d')}）" for m in episodic_memories]
                 parts.append(f"[相关情景记忆]\n" + "\n".join(memory_texts) + "\n")
 
         # 3. 语义记忆
-        if query.strip():
+        if include_semantic and self.semantic_memory is not None and query.strip():
             try:
                 semantic_memories = await self.semantic_memory.search(query, top_k=3)
                 if semantic_memories:
@@ -245,14 +272,25 @@ class MemoryManager:
             格式化的记忆文本
         """
         results = []
+        memory_options = self._memory_options()
+        enable_episodic = bool(memory_options.get("enable_episodic", True))
+        enable_semantic = bool(memory_options.get("enable_semantic", True))
 
         async def search_episodic():
-            if memory_type not in ("episodic", "all"):
+            if (
+                not enable_episodic
+                or self.episodic_memory is None
+                or memory_type not in ("episodic", "all")
+            ):
                 return []
             return await self.episodic_memory.search(query, top_k)
 
         async def search_semantic():
-            if memory_type not in ("semantic", "all"):
+            if (
+                not enable_semantic
+                or self.semantic_memory is None
+                or memory_type not in ("semantic", "all")
+            ):
                 return []
             try:
                 return await self.semantic_memory.search(query, top_k)
@@ -284,6 +322,9 @@ class MemoryManager:
         Raises:
             ValueError: 时间范围超过5天
         """
+        if self.summary_memory is None:
+            return "日记记忆未启用"
+
         if (end - start).days > 5:
             raise ValueError("时间范围不能超过5天")
 
@@ -306,6 +347,17 @@ class MemoryManager:
         if now.hour < self.config.day_boundary_hour:
             return (now - timedelta(days=1)).date()
         return now.date()
+
+    def _memory_options(self) -> dict[str, Any]:
+        memory = self.chat_settings.agent_plugins.get("memory")
+        config = dict(MEMORY_DEFAULT_CONFIG)
+        if memory:
+            config.update(memory.config)
+            if not memory.enabled:
+                config["enable_diary"] = False
+                config["enable_episodic"] = False
+                config["enable_semantic"] = False
+        return config
 
     # ==================== 工具方法 ====================
 

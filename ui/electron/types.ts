@@ -15,6 +15,7 @@ import type {
   ModelTransformData,
   MotionConfig as SharedMotionConfig,
   MotionSettingType as SharedMotionSettingType,
+  PluginItem as SharedPluginItem,
   ScreenshotInterruptPayload as SharedScreenshotInterruptPayload,
   ToolCallEventData,
   ToolItem as SharedToolItem,
@@ -23,6 +24,7 @@ import type {
 export type MotionConfig = SharedMotionConfig;
 export type MotionSettingType = SharedMotionSettingType;
 export type ToolItem = SharedToolItem;
+export type PluginItem = SharedPluginItem;
 export type ChatSettingsData = SharedChatSettingsData;
 export type ChatHistoryItem = SharedChatHistoryItem;
 export type ApiResponse<T> = SharedApiResponse<T>;

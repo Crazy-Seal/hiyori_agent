@@ -209,6 +209,9 @@ class BasePlugin(ABC):
     """插件基类"""
 
     name: str
+    description: str = ""
+    inherent: bool = False
+    config_model: Any = None
     version: str = "1.0.0"
     priority: int = 100    # 优先级，数值小的先执行
 

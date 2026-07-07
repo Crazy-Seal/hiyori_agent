@@ -57,12 +57,26 @@ export type ChatSettingsData = {
   system_prompt: string;
   tools_list: string[];
   memory_plugins?: string[] | null;
+  agent_plugins?: Record<string, AgentPluginSettings> | null;
   name?: string | null;
   feature?: string | null;
   character?: string | null;
   address?: string | null;
   characteristic?: string | null;
   constraint?: string | null;
+};
+
+export type AgentPluginSettings = {
+  enabled: boolean;
+  config: Record<string, unknown>;
+};
+
+export type PluginItem = {
+  name: string;
+  description: string;
+  inherent: boolean;
+  default_config: Record<string, unknown>;
+  config_schema: Record<string, unknown>;
 };
 
 export type ToolItem = {
@@ -176,6 +190,7 @@ export interface DesktopPetApi {
   getChatHistoryLastN: (sessionId: string, n: number) => Promise<ChatHistoryItem[]>;
   updateChatSettings: (settings: ChatSettingsData) => Promise<ApiResponse<never>>;
   getAvailableTools: () => Promise<{ tools: ToolItem[] }>;
+  getAvailablePlugins: () => Promise<{ plugins: PluginItem[] }>;
   previewLive2DImport: () => Promise<ImportPreview | null>;
   importLive2DModel: (payload: {
     selectedPath: string;

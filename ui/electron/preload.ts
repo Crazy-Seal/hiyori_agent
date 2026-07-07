@@ -51,6 +51,7 @@ const desktopPetApi: DesktopPetApi = {
   updateChatSettings: (payload) =>
     ipcRenderer.invoke("desktop-pet:update-chat-settings", payload),
   getAvailableTools: () => ipcRenderer.invoke("desktop-pet:get-available-tools"),
+  getAvailablePlugins: () => ipcRenderer.invoke("desktop-pet:get-available-plugins"),
   previewLive2DImport: () => ipcRenderer.invoke("desktop-pet:preview-live2d-import"),
   importLive2DModel: (payload) =>
     ipcRenderer.invoke("desktop-pet:import-live2d-model", payload),

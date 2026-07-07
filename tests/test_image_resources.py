@@ -102,6 +102,57 @@ def test_memory_plugin_starts_and_consumes_image_task(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
+def test_memory_plugin_annotates_image_message_after_consuming_description(monkeypatch) -> None:
+    async def describe(*args, **kwargs):
+        return memory_plugin_module.ImageTaskResult("一只猫坐在桌子上。", ["cat.png"])
+
+    class FakeMemoryManager:
+        async def try_summary(self, *args, **kwargs):
+            return None
+
+        async def add(self, *args, **kwargs):
+            return None
+
+    def capture_task(coro, *, logger, task_name):
+        coro.close()
+        return None
+
+    monkeypatch.setattr(
+        memory_plugin_module,
+        "generate_multiple_image_descriptions",
+        describe,
+    )
+    monkeypatch.setattr(memory_plugin_module, "create_background_task", capture_task)
+
+    async def scenario() -> AgentState:
+        plugin = MemoryPlugin()
+        monkeypatch.setattr(plugin, "_mm", lambda state: FakeMemoryManager())
+        state = AgentState.create_new("test-session")
+        state.messages.append(
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "看看这张图"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/png;base64,AA=="},
+                    },
+                ],
+            }
+        )
+        state.add_assistant_message("看到了。")
+
+        await plugin.execute(HookContext.create(PluginHook.ON_INVOKE, state))
+        await plugin.execute(HookContext.create(PluginHook.BEFORE_RESPONSE, state))
+        return state
+
+    state = asyncio.run(scenario())
+
+    image_message = state.messages[0]
+    assert image_message["image_description"] == "一只猫坐在桌子上。"
+    assert image_message["image_filenames"] == ["cat.png"]
+
+
 def test_memory_plugin_ignores_message_without_image(monkeypatch) -> None:
     called = False
 
