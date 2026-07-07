@@ -8,7 +8,6 @@ from typing import Any
 
 from app.agent.memory.config import MemoryConfig
 from app.agent.memory.memories.episodic import EpisodicMemory
-from app.agent.memory.memories.semantic import SemanticMemory
 from app.agent.memory.memories.semantic_mem0 import Mem0SemanticMemory
 from app.agent.memory.memories.summary import SummaryMemory
 from app.agent.memory.store.chat_history_store import ChatHistoryStore
@@ -75,15 +74,11 @@ class MemoryManager:
             else None
         )
 
-        # 初始化语义记忆 - 根据配置选择后端
+        # 初始化语义记忆
         if not self.memory_options.get("enable_semantic", True):
             self.semantic_memory = None
-        elif self.config.semantic_backend == "mem0":
-            self.semantic_memory = Mem0SemanticMemory(
-                session_id, self.config, self.chat_settings
-            )
         else:
-            self.semantic_memory = SemanticMemory(
+            self.semantic_memory = Mem0SemanticMemory(
                 session_id, self.config, self.chat_settings
             )
 
@@ -126,12 +121,7 @@ class MemoryManager:
             if not enable_semantic or self.semantic_memory is None:
                 return 0
             try:
-                if self.config.semantic_backend == "mem0":
-                    # Mem0 后端：传递 Message 对象
-                    semantic_ids = await self.semantic_memory.add(messages, history)
-                else:
-                    # Native 后端：传递文本格式
-                    semantic_ids = await self.semantic_memory.add(messages_text, history_text)
+                semantic_ids = await self.semantic_memory.add(messages, history)
                 return len(semantic_ids)
             except Exception as e:
                 logger.warning("[MemoryManager] 语义记忆处理失败: %s", e)

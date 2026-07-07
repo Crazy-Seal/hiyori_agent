@@ -95,8 +95,7 @@ conda run -n my_agent python -m pytest tests -q
 ```
 
 测试模式下 SQLite、checkpoint、Chroma、Mem0/Qdrant、图片和会话配置均位于
-`AYAYA_DATA_DIR` 内，并且不会加载生产 `.env`。Neo4j 集成测试需使用独立的
-`TEST_NEO4J_URI`，不会继承 `NEO4J_URI`。
+`AYAYA_DATA_DIR` 内，并且不会加载生产 `.env`。
 
 ### 2. 前端部署 (Electron + Vite)
 

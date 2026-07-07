@@ -98,8 +98,6 @@ conda run -n my_agent python -m pytest tests -q
 
 In test mode SQLite, checkpoints, Chroma, Mem0/Qdrant, images, and chat
 settings stay under `AYAYA_DATA_DIR`, and the production `.env` is not loaded.
-Neo4j integration tests must use a dedicated `TEST_NEO4J_URI`; `NEO4J_URI` is
-not inherited.
 
 ### 2. Frontend Deployment (Electron + Vite)
 

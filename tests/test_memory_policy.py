@@ -123,7 +123,6 @@ def test_memory_manager_skips_disabled_memory_subsystems(monkeypatch) -> None:
     monkeypatch.setattr(memory_manager_module, "ChatHistoryStore", FakeChatHistoryStore)
     monkeypatch.setattr(memory_manager_module, "SummaryMemory", DisabledSubsystem)
     monkeypatch.setattr(memory_manager_module, "EpisodicMemory", DisabledSubsystem)
-    monkeypatch.setattr(memory_manager_module, "SemanticMemory", DisabledSubsystem)
     monkeypatch.setattr(memory_manager_module, "Mem0SemanticMemory", DisabledSubsystem)
 
     manager = MemoryManager(
@@ -140,6 +139,42 @@ def test_memory_manager_skips_disabled_memory_subsystems(monkeypatch) -> None:
     assert manager.summary_memory is None
     assert manager.episodic_memory is None
     assert manager.semantic_memory is None
+
+
+def test_memory_manager_uses_mem0_even_with_legacy_backend_env(monkeypatch) -> None:
+    constructed: list[tuple[str, str]] = []
+
+    class FakeChatHistoryStore:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class DisabledSubsystem:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("disabled memory subsystem should not initialize")
+
+    class FakeMem0SemanticMemory:
+        def __init__(self, session_id, config, chat_settings):
+            constructed.append((session_id, chat_settings.session_id))
+
+    monkeypatch.setenv("SEMANTIC_BACKEND", "native")
+    monkeypatch.setenv("NEO4J_URI", "bolt://legacy.example:7687")
+    monkeypatch.setattr(memory_manager_module, "ChatHistoryStore", FakeChatHistoryStore)
+    monkeypatch.setattr(memory_manager_module, "SummaryMemory", DisabledSubsystem)
+    monkeypatch.setattr(memory_manager_module, "EpisodicMemory", DisabledSubsystem)
+    monkeypatch.setattr(memory_manager_module, "Mem0SemanticMemory", FakeMem0SemanticMemory)
+
+    manager = MemoryManager(
+        "test-session",
+        MemoryConfig.from_env(),
+        _chat_settings(
+            enable_diary=False,
+            enable_episodic=False,
+            enable_semantic=True,
+        ),
+    )
+
+    assert constructed == [("test-session", "test-session")]
+    assert isinstance(manager.semantic_memory, FakeMem0SemanticMemory)
 
 
 def test_memory_manager_saves_chat_history_when_diary_is_disabled(monkeypatch) -> None:
@@ -202,7 +237,6 @@ def test_disabled_memory_subsystems_are_not_accessed(monkeypatch) -> None:
     monkeypatch.setattr(memory_manager_module, "ChatHistoryStore", FakeChatHistoryStore)
     monkeypatch.setattr(memory_manager_module, "SummaryMemory", DisabledSubsystem)
     monkeypatch.setattr(memory_manager_module, "EpisodicMemory", DisabledSubsystem)
-    monkeypatch.setattr(memory_manager_module, "SemanticMemory", DisabledSubsystem)
     monkeypatch.setattr(memory_manager_module, "Mem0SemanticMemory", DisabledSubsystem)
 
     async def scenario() -> tuple[dict[str, int], str, str, str]:

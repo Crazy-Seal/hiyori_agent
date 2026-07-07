@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from app.runtime import get_mem0_qdrant_dir, get_memory_base_dir, is_test_environment
+from app.runtime import get_mem0_qdrant_dir, get_memory_base_dir
 
 
 def get_system_timezone() -> ZoneInfo:
@@ -21,12 +21,6 @@ class MemoryConfig:
     # 存储路径
     sqlite_path: str = ""
     chroma_path: str = ""
-    neo4j_uri: str = "bolt://localhost:7687"
-    neo4j_user: str = "neo4j"
-    neo4j_password: str = "neo4j"
-
-    # 语义记忆后端选择
-    semantic_backend: str = "mem0"  # "native" | "mem0"
 
     # Mem0 配置
     mem0_qdrant_path: str = ""
@@ -61,23 +55,9 @@ class MemoryConfig:
 
         day_boundary_hour = int(os.getenv("MEMORY_DAY_BOUNDARY_HOUR", "4"))
 
-        if is_test_environment():
-            # 测试不得继承生产 Neo4j 地址；集成测试可通过 TEST_NEO4J_* 指定专用实例。
-            neo4j_uri = os.getenv("TEST_NEO4J_URI", "bolt://127.0.0.1:0")
-            neo4j_user = os.getenv("TEST_NEO4J_USER", "neo4j")
-            neo4j_password = os.getenv("TEST_NEO4J_PASSWORD", "")
-        else:
-            neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-            neo4j_user = os.getenv("NEO4J_USER", "neo4j")
-            neo4j_password = os.getenv("NEO4J_PASSWORD", "")
-
         return cls(
             sqlite_path=str(base_path / "sqlite" / "memory.sqlite3"),
             chroma_path=str(base_path / "chroma"),
-            neo4j_uri=neo4j_uri,
-            neo4j_user=neo4j_user,
-            neo4j_password=neo4j_password,
-            semantic_backend=os.getenv("SEMANTIC_BACKEND", "mem0"),
             mem0_qdrant_path=str(get_mem0_qdrant_dir(base_path)),
             mem0_collection_name=os.getenv("MEM0_COLLECTION_NAME", "Ayaya_semantic_memory"),
             embedding_api_key=os.getenv("EMBEDDING_API_KEY", ""),

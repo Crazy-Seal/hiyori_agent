@@ -9,7 +9,6 @@ from app.runtime import (
     get_data_dir,
     get_memory_base_dir,
 )
-from app.agent.memory.config import MemoryConfig
 
 
 def test_test_paths_are_inside_disposable_data_dir() -> None:
@@ -42,13 +41,3 @@ def test_memory_override_must_stay_in_test_data_dir(
     with pytest.raises(RuntimeError, match="必须位于 AYAYA_DATA_DIR 内"):
         get_memory_base_dir()
 
-
-def test_test_memory_config_does_not_inherit_production_neo4j(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("NEO4J_URI", "bolt://production.example:7687")
-    monkeypatch.delenv("TEST_NEO4J_URI", raising=False)
-
-    config = MemoryConfig.from_env()
-
-    assert config.neo4j_uri == "bolt://127.0.0.1:0"
