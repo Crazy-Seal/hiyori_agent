@@ -19,13 +19,13 @@ def test_skills_survive_round_trip(tmp_path: Path) -> None:
         temperature=0.1,
         system_prompt="test",
         tools_list=[],
-        skills=["coding"],
+        skills=["sample"],
     )
 
     dao.add_chat_settings(settings)
     reloaded = ChatSettingsDao(config_file=config_file).get_chat_settings("test-session")
 
-    assert reloaded.skills == ["coding"]
+    assert reloaded.skills == ["sample"]
     assert reloaded.agent_plugins["memory"].enabled is True
 
 

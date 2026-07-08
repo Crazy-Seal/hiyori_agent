@@ -100,9 +100,5 @@ def get_checkpoint_db() -> Path:
     return get_sqlite_dir() / "agent_checkpoints.sqlite3"
 
 
-def get_coding_checkpoint_db() -> Path:
-    return get_sqlite_dir() / "agent_coding.sqlite3"
-
-
 def get_images_dir() -> Path:
     return get_data_dir() / "images"

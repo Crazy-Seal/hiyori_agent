@@ -68,7 +68,6 @@ class SkillRegistry:
 
 # 预注册的延迟加载能力包（在此登记）
 LAZY_SKILLS: dict[str, str] = {
-    # "coding": "app.agent.skills.coding:CodingSkill",
 }
 
 for _name, _spec in LAZY_SKILLS.items():

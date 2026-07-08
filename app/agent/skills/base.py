@@ -12,10 +12,10 @@ class BaseSkill(ABC):
     """能力包基类。
 
     子类通过类属性声明能力：
-        class CodingSkill(BaseSkill):
-            name = "coding"
-            system_prompt_fragment = "你擅长编程……"
-            tools = ["plan_and_coding", "run_ps"]
+        class ExampleSkill(BaseSkill):
+            name = "example"
+            system_prompt_fragment = "你可以使用特定工具……"
+            tools = ["access_the_internet"]
             plugins = []
     """
 
