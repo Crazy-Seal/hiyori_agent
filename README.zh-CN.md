@@ -1,128 +1,160 @@
-﻿﻿[**English**](./README.md) | [**简体中文**](./README.zh-CN.md)
+﻿[**English**](./README.md) | [**简体中文**](./README.zh-CN.md)
 
 # Ayaya
 
-基于LLM和Agent技术的智能桌宠。包含一个基于 **FastAPI + LangChain/LangGraph** 的后端，以及一个基于 **Electron + Vite + Vue/React/TS** 的Live2D桌面端 UI。
+Ayaya 是一个本地 AI 桌宠。它会以 Live2D 角色的形式待在桌面上，可以和你聊天，记住过去的对话，理解你发来的图片，也可以在你允许的情况下使用一些本地工具。
 
-##  项目结构
+这个项目面向个人桌面使用，不是一个在线托管服务，也不需要用户系统或远程数据库。聊天记录、长期记忆、导入的 Live2D 模型和应用设置都会保存在本机。
 
-项目采用前后端分离的架构：
+## 它能做什么
 
+- 在桌面上显示 Live2D 角色。
+- 通过桌面聊天面板和角色对话。
+- 流式显示模型回复。
+- 保存本地聊天历史和长期记忆。
+- 支持发送图片，并用视觉模型生成图片摘要。
+- 可按需启用记忆检索、日记检索、联网搜索、读写本地文件、执行 PowerShell 命令和需要确认的截图。
+- 在设置窗口里调整模型、提示词、工具、记忆策略、Live2D 模型、位置缩放、视线跟随和动作标签。
+
+## 运行要求
+
+- 主要开发环境是 Windows。
+- Python 3.12。
+- Conda 环境名为 `my_agent`。
+- Node.js 24.x。
+- 一个 OpenAI 兼容的聊天模型接口。
+- 如果要使用长期记忆、联网搜索或图片理解，需要额外配置对应服务密钥。
+
+## 快速开始
+
+先启动后端：
+
+```powershell
+conda run -n my_agent pip install -r requirements.txt
+conda run -n my_agent uvicorn main:app --reload --reload-exclude "agent_workspace/*"
 ```
-Ayaya/
-├── app/                  # FastAPI 后端代码
-│   ├── agent/            # LangGraph Agent
-│   ├── config/           # 后端配置文件解析
-│   ├── crud/             # 数据库 CRUD 层
-│   ├── routes/           # API 路由层
-│   ├── schemas/          # Pydantic 数据模型
-│   └── services/         # 服务层
-├── config/               # 后端配置文件
-├── memory/               # 记忆存储
-├── ui/                   # 前端源码
-│   ├── electron/         # Electron 主进程及预加载脚本
-│   ├── public/           # 静态资源，Live2D 模型文件等
-│   ├── src/              # 前端页面代码
-│   └── package.json      # 前端依赖与脚本配置
-├── tests/                # 后端自动化测试
-├── main.py               # FastAPI 后端服务启动入口
-└── requirements.txt      # Python 环境依赖清单
+
+后端默认运行在 `http://127.0.0.1:8000`。
+
+然后启动桌面端：
+
+```powershell
+cd ui
+npm install
+npm run dev
 ```
 
-##  部署与运行方法
+首次运行前，需要下载默认 Live2D 模型：
 
-### 1. 后端部署 (FastAPI)
+```text
+https://cubism.live2d.com/sample-data/bin/hiyori_pro/hiyori_pro_zh.zip
+```
 
-建议使用 Python 3.12。
+把 `hiyori_pro_zh.zip` 直接放到 `ui/` 目录下。前端准备脚本会自动解压到 `ui/public/live2d/`，并在需要时下载 Cubism Core。
 
-1. **创建并激活虚拟环境 (推荐使用miniconda)**:
-   ```powershell
-   conda create -n Ayaya python=3.12
-   conda activate Ayaya
-   ```
-2. **安装依赖**:
-   ```powershell
-   pip install -r requirements.txt
-   ```
-3. **环境配置**:
-   在项目根目录创建或修改 `.env` 文件，并填写相关密钥：
-   ```dotenv
-   # embedding配置
-   EMBEDDING_API_KEY=YOUR_API_KEY
-   EMBEDDING_MODEL=text-embedding-v4
-   EMBEDDING_DIMENSION=1024
-   EMBEDDING_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-   
-   # mem0记忆提取模型（重要：此处请选择OpenAI的模型，否则可能出现json生成错误）
-   MEM0_EXTRACTION_MODEL=gpt-5.4
-   MEM0_EXTRACTION_BASE_URL=https://www.dmxapi.cn/v1
-   MEM0_EXTRACTION_API_KEY=YOUR_API_KEY
-   
-   # 编程AI配置
-   CODING_API_KEY=YOUR_API_KEY
-   CODING_MODEL=gpt-5.3-codex
-   CODING_BASE_URL=https://www.dmxapi.cn/v1
-   CODING_TEMPERATURE=0.3
-   
-   # Tavily配置
-   TAVILY_API_KEY=YOUR_API_KEY
-   
-   # VLM配置
-   VLM_API_KEY=YOUR_API_KEY
-   VLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-   VLM_MODEL=qwen3-vl-plus
-   ```
-4. **启动服务**:
-   ```powershell
-   uvicorn main:app --reload --reload-exclude "agent_workspace/*"
-   ```
-   > 默认后端将在 http://127.0.0.1:8000 运行。
+## 初次配置
 
-### 后端运行环境隔离
+打开桌面端的设置窗口，配置以下内容：
 
-生产环境默认使用项目下的 `memory/` 和 `config/chat_settings.yaml`：
+- 模型 Base URL、API key、模型名和温度。
+- 角色人设和系统提示词。
+- 启用哪些工具。
+- 记忆和上下文策略。
+- Live2D 模型、位置、缩放、视线跟随和动作标签。
+
+正常本地使用时，聊天模型配置保存在 `config/chat_settings.yaml`。
+
+部分可选功能还需要在项目根目录 `.env` 中配置密钥：
 
 ```dotenv
-AYAYA_ENV=production
+# 长期记忆 embedding
+EMBEDDING_API_KEY=YOUR_API_KEY
+EMBEDDING_MODEL=text-embedding-v4
+EMBEDDING_DIMENSION=1024
+EMBEDDING_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+
+# 长期记忆提取（此处请选择OpenAI的模型，否则可能出现json生成错误）
+MEM0_EXTRACTION_MODEL=gpt-5.4
+MEM0_EXTRACTION_BASE_URL=https://www.dmxapi.cn/v1
+MEM0_EXTRACTION_API_KEY=YOUR_API_KEY
+
+# 联网搜索
+TAVILY_API_KEY=YOUR_API_KEY
+
+# 屏幕点击和图片理解
+VLM_API_KEY=YOUR_API_KEY
+VLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+VLM_MODEL=qwen3-vl-plus
 ```
 
-测试环境必须显式提供独立数据目录，否则后端会直接拒绝启动或创建存储：
+如果只想先体验基础聊天，优先在设置窗口里配好聊天模型即可。其他密钥只需要在使用对应功能时再补。
+
+## 开发说明
+
+后端是一个 FastAPI 应用，入口在 `main.py`。主要代码位于 `app/`：
+
+- `app/routes/` HTTP 和流式接口。
+- `app/services/` 负责聊天、设置和历史记录等应用服务。
+- `app/agent/` Agent 运行时、工具、记忆、模型客户端和执行管道。
+- `app/crud/` 负责本地持久化访问。
+- `app/schemas/` Pydantic 数据模型。
+
+桌面端位于 `ui/`：
+
+- `ui/electron/` Electron 主进程和 preload 代码。
+- `ui/src/` 桌宠、聊天、设置、Live2D 和图片处理等渲染进程代码。
+- `ui/public/` 前端静态资源。
+- `ui/user_data/` 保存运行时导入的模型和前端设置。
+
+## 构建与启动
+
+后端：
+
+```powershell
+conda run -n my_agent uvicorn main:app --reload --reload-exclude "agent_workspace/*"
+```
+
+前端开发模式：
+
+```powershell
+cd ui
+npm run dev
+```
+
+前端生产构建：
+
+```powershell
+cd ui
+npm run build
+npm run start
+```
+
+如果后端不是运行在 `http://127.0.0.1:8000`，启动 Electron 前需要设置 `BACKEND_BASE_URL`。
+
+## 测试
+
+后端测试必须使用隔离的数据目录：
 
 ```powershell
 $env:AYAYA_ENV="test"
 $env:AYAYA_DATA_DIR="$env:TEMP\ayaya-test-data"
-conda run -n my_agent python -m pytest tests -q
+conda run -n my_agent python -B -m pytest tests -q -p no:cacheprovider
 ```
 
-测试模式下 SQLite、checkpoint、Chroma、Mem0/Qdrant、图片和会话配置均位于
-`AYAYA_DATA_DIR` 内，并且不会加载生产 `.env`。
+前端检查：
 
-### 2. 前端部署 (Electron + Vite)
+```powershell
+cd ui
+npm run typecheck
+npm run test:unit
+```
 
-环境： Node.js 24.9.0
+## 本地数据
 
-1. **进入前端目录**:
-   ```powershell
-   cd ui
-   ```
-2. **安装依赖**:
-   ```powershell
-   npm install
-   ```
-3. **下载live2d模型**
-   进入`https://cubism.live2d.com/sample-data/bin/hiyori_pro/hiyori_pro_zh.zip`
-下载默认模型，将下载后的压缩包放在/ui路径下
+正常本地运行会使用：
 
+- `memory/` 保存后端运行数据、聊天历史、checkpoint、图片和记忆数据。
+- `config/chat_settings.yaml` 保存聊天会话配置。
+- `ui/user_data/` 保存导入的 Live2D 模型、模型元数据、前端设置和模型变换数据。
 
-4. **开发模式运行**:
-   ```powershell
-   npm run dev
-   ```
-
-##  备注
-
-* **数据库**: 本项目使用本地数据库存储对话历史和记忆，数据库文件会自动生成于 memory/ 目录中。
-  - sqlite 用于存储聊天记录、日记、摘要记忆、情景记忆原文、图状态等；
-  - chroma 用于存储长期情景记忆向量；
-  - mem0使用 Qdrant 存储语义记忆原文和向量。
-* **Live2D 模型**: 模型资产放在 ui/public/live2d/ 目录下，可以在前端的设置面板进行替换或新增。
+不要提交凭据或生成的运行数据。
