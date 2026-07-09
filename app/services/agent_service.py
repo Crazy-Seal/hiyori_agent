@@ -94,3 +94,43 @@ class AgentService:
             raise RuntimeError(f"恢复对话失败: {e}") from e
         finally:
             await self._close(session_id, agent)
+
+    async def resume_after_control_screen(
+        self,
+        session_id: str,
+        approved: bool | None = None,
+        screenshot_data: str | None = None,
+        width: int | None = None,
+        height: int | None = None,
+        executed: bool | None = None,
+        error: str | None = None,
+    ) -> AsyncIterator:
+        chat_settings = self.chat_settings_loader(session_id)
+        agent = self.agent_factory(chat_settings)
+
+        resume_data: dict = {}
+        if approved is not None:
+            resume_data["approved"] = approved
+        if screenshot_data:
+            resume_data["screenshot_data"] = screenshot_data
+        if width is not None:
+            resume_data["width"] = width
+        if height is not None:
+            resume_data["height"] = height
+        if executed is not None:
+            resume_data["executed"] = executed
+        if error:
+            resume_data["error"] = error
+
+        try:
+            async for event in agent.resume(resume_data):
+                if event.type == EventType.ERROR:
+                    raise RuntimeError(event.data)
+                if event.type == EventType.DONE:
+                    continue
+                yield event
+        except Exception as e:
+            logger.exception("[AgentService][session=%s] 恢复对话失败", session_id)
+            raise RuntimeError(f"恢复对话失败: {e}") from e
+        finally:
+            await self._close(session_id, agent)

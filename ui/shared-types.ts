@@ -126,19 +126,64 @@ export type ChatChunkData = {
   aggregated: string;
 };
 
-export type ScreenshotInterruptPayload = {
-  value: {
-    type: "screenshot_request";
-    request_id: string;
-    message: string;
-  };
+export type ScreenshotInterruptData = {
+  type: "screenshot_request";
+  request_id: string;
+  message: string;
 };
+
+export type ControlScreenOperation = "click" | "double" | "right" | "scroll";
+export type ControlScreenScrollDirection = "none" | "down" | "up";
+
+export type ControlScreenCoordinates = {
+  bbox: [number, number, number, number];
+  x_ratio: number;
+  y_ratio: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export type ControlScreenActionData = {
+  target: string;
+  operation: ControlScreenOperation;
+  text: string;
+  press_enter: boolean;
+  wait_seconds: number;
+  scroll_direction: ControlScreenScrollDirection;
+  coordinates: ControlScreenCoordinates;
+};
+
+export type ControlScreenCaptureInterruptData = {
+  type: "control_screen_capture_request";
+  request_id: string;
+  message: string;
+};
+
+export type ControlScreenExecuteInterruptData = {
+  type: "control_screen_execute_request";
+  request_id: string;
+  message: string;
+  data: ControlScreenActionData;
+};
+
+export type ChatInterruptData =
+  | ScreenshotInterruptData
+  | ControlScreenCaptureInterruptData
+  | ControlScreenExecuteInterruptData;
+
+export type ChatInterruptPayload = {
+  value: ChatInterruptData;
+};
+
+export type ScreenshotInterruptPayload = ChatInterruptPayload;
 
 export type ChatResult =
   | { response: string; model: string; interrupted?: false }
   | {
       interrupted: true;
-      interruptData: ScreenshotInterruptPayload;
+      interruptData: ChatInterruptPayload;
       response: string;
       model: string;
     };
@@ -155,6 +200,13 @@ export type AgentErrorEventData = {
 
 export type FrontendSettings = {
   hide_on_screenshot: boolean;
+};
+
+export type ScreenActionRequest = ControlScreenActionData;
+
+export type ScreenActionResult = {
+  executed: boolean;
+  error?: string;
 };
 
 export type ImportPreview = {
@@ -222,8 +274,19 @@ export interface DesktopPetApi {
     width?: number,
     height?: number
   ) => Promise<ChatResult>;
+  controlScreenRespond?: (payload: {
+    sessionId: string;
+    requestId?: string;
+    approved?: boolean;
+    screenshotData?: string;
+    width?: number;
+    height?: number;
+    executed?: boolean;
+    error?: string;
+  }) => Promise<ChatResult>;
   captureScreen?: () => Promise<{ dataUrl: string; width: number; height: number }>;
-  onChatInterrupt?: (callback: (data: ScreenshotInterruptPayload) => void) => () => void;
+  performScreenAction?: (payload: ScreenActionRequest) => Promise<ScreenActionResult>;
+  onChatInterrupt?: (callback: (data: ChatInterruptPayload) => void) => () => void;
   onToolCall?: (callback: (data: ToolCallEventData) => void) => () => void;
   onChatAgentError?: (callback: (data: AgentErrorEventData) => void) => () => void;
   getFrontendSettings: () => Promise<FrontendSettings>;

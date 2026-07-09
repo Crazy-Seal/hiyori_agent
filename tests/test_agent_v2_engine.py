@@ -453,6 +453,14 @@ def test_sse_formatter_v2_events_byte_compatible():
     interrupt_val = {"type": "screenshot_request", "request_id": "r1", "message": "允许？"}
     assert f(AgentEvent(ET.INTERRUPT, interrupt_val)) == \
         'event: interrupt\ndata: {"value": {"type": "screenshot_request", "request_id": "r1", "message": "允许？"}}\n\n'
+    interrupt_with_data = {
+        "type": "control_screen_execute_request",
+        "request_id": "r2",
+        "message": "允许操作？",
+        "data": {"x": 1},
+    }
+    assert f(AgentEvent(ET.INTERRUPT, interrupt_with_data)) == \
+        'event: interrupt\ndata: {"value": {"type": "control_screen_execute_request", "request_id": "r2", "message": "允许操作？", "data": {"x": 1}}}\n\n'
     # DONE 交给路由 done()，format 返回 None
     assert f(AgentEvent(ET.DONE, None)) is None
 

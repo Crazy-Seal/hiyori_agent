@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from app.routes.agent import router as agent_router
 from app.routes.chat_settings import router as chat_settings_router
 from app.routes.chat_history import router as memory_router
+from app.routes.control_screen import router as control_screen_router
 from app.routes.screenshot import router as screenshot_router
 from app.routes.tools import router as tools_router
 from app.routes.plugins import router as plugins_router
@@ -32,6 +33,7 @@ app = FastAPI(title="Ayaya server", version="0.1.0")
 app.include_router(agent_router)
 app.include_router(chat_settings_router)
 app.include_router(memory_router)
+app.include_router(control_screen_router)
 app.include_router(screenshot_router)
 app.include_router(tools_router)
 app.include_router(plugins_router)

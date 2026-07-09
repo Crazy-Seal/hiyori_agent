@@ -211,7 +211,7 @@ class Agent:
         if state.is_interrupted():
             yield AgentEvent(
                 EventType.ERROR,
-                "存在待处理的截屏确认，请先允许或拒绝",
+                "存在待处理的前端确认，请先允许或拒绝",
             )
             return
 

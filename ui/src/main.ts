@@ -523,7 +523,7 @@ class MainApp {
 }
 
 /**
- * 截屏时需要隐藏的元素选择器
+ * 截屏或屏幕操作时需要隐藏的元素选择器
  */
 const HIDE_ELEMENTS_ON_SCREENSHOT = [
   "#live2d-stage",
@@ -540,7 +540,7 @@ const HIDE_ELEMENTS_ON_SCREENSHOT = [
 let hiddenElementsByScreenshot: HTMLElement[] = [];
 
 /**
- * 隐藏界面元素（截屏前调用）
+ * 隐藏界面元素（截屏或屏幕操作前调用）
  */
 window.hideElementsForScreenshot = () => {
   hiddenElementsByScreenshot = [];
@@ -554,7 +554,7 @@ window.hideElementsForScreenshot = () => {
 };
 
 /**
- * 恢复界面元素（截屏后调用）
+ * 恢复界面元素（截屏或屏幕操作后调用）
  */
 window.restoreElementsAfterScreenshot = () => {
   for (const el of hiddenElementsByScreenshot) {

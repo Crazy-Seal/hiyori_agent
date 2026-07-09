@@ -2,7 +2,7 @@
  * IPC 处理器注册
  */
 
-import { ipcMain, BrowserWindow, dialog, net, desktopCapturer } from "electron";
+import { ipcMain, BrowserWindow, dialog, net, desktopCapturer, screen, type IpcMainInvokeEvent } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -15,8 +15,11 @@ import type {
   ModelTransformChangedPayload,
   ChatChunkPayload,
   ScreenshotInterruptPayload,
+  ScreenActionRequest,
+  ScreenActionResult,
   ToolCallPayload,
   FrontendSettings,
+  ChatResult,
 } from "./types.js";
 import {
   loadModelConfig,
@@ -98,6 +101,195 @@ const notifyModelTransformChanged = (model: {
   };
 
   mainWindow.webContents.send("desktop-pet:model-transform-changed", payload);
+};
+
+const streamBackendResponse = async (
+  event: IpcMainInvokeEvent,
+  res: Response,
+  requestId: string | undefined,
+  errorFallback: string
+): Promise<ChatResult> => {
+  if (!res.body) {
+    throw new Error("API error: missing response stream");
+  }
+
+  const decoder = new TextDecoder("utf-8");
+  const reader = res.body.getReader();
+  let streamBuffer = "";
+  let aggregatedResponse = "";
+
+  type ProcessResult = {
+    done: boolean;
+    interrupted?: boolean;
+    interruptData?: ScreenshotInterruptPayload;
+  };
+
+  const processEventBlock = (block: string): ProcessResult => {
+    const lines = block
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    let eventName = "message";
+    const dataLines: string[] = [];
+
+    for (const line of lines) {
+      if (line.startsWith("event:")) {
+        eventName = line.slice(6).trim();
+      } else if (line.startsWith("data:")) {
+        dataLines.push(line.slice(5).trim());
+      }
+    }
+
+    if (dataLines.length === 0) {
+      return { done: false };
+    }
+
+    const dataText = dataLines.join("\n");
+    if (dataText === "[DONE]") {
+      return { done: true };
+    }
+
+    const parsed = JSON.parse(dataText) as { response?: string; detail?: string };
+
+    if (eventName === "interrupt") {
+      const interruptData = parsed as unknown as ScreenshotInterruptPayload;
+      event.sender.send("desktop-pet:chat-interrupt", interruptData);
+      return { done: true, interrupted: true, interruptData };
+    }
+
+    if (eventName === "tool_call") {
+      const toolCallData = parsed as unknown as ToolCallPayload;
+      if (requestId) {
+        event.sender.send("desktop-pet:chat-tool-call", {
+          requestId,
+          toolName: toolCallData.tool_name,
+        });
+      }
+      return { done: false };
+    }
+
+    if (eventName === "error") {
+      if (requestId) {
+        event.sender.send("desktop-pet:chat-agent-error", {
+          requestId,
+          errorMessage: parsed.detail || errorFallback,
+        });
+      }
+      return { done: true };
+    }
+
+    if (typeof parsed.response === "string" && parsed.response.length > 0) {
+      aggregatedResponse += parsed.response;
+      if (requestId) {
+        const chunkPayload: ChatChunkPayload = {
+          requestId,
+          chunk: parsed.response,
+          aggregated: aggregatedResponse,
+        };
+        event.sender.send("desktop-pet:chat-chunk", chunkPayload);
+      }
+    }
+
+    return { done: false };
+  };
+
+  let streamEnded = false;
+  let interrupted = false;
+  let interruptData: ScreenshotInterruptPayload | undefined;
+
+  while (!streamEnded) {
+    const readResult = await reader.read();
+    if (readResult.done) {
+      streamEnded = true;
+      break;
+    }
+
+    streamBuffer += decoder.decode(readResult.value, { stream: true });
+    const normalized = streamBuffer.replaceAll("\r\n", "\n");
+    const eventBlocks = normalized.split("\n\n");
+    streamBuffer = eventBlocks.pop() ?? "";
+
+    for (const block of eventBlocks) {
+      const state = processEventBlock(block);
+      if (state.done) {
+        streamEnded = true;
+        if (state.interrupted) {
+          interrupted = true;
+          interruptData = state.interruptData;
+        }
+        break;
+      }
+    }
+  }
+
+  const remaining = streamBuffer.trim();
+  if (remaining.length > 0 && !interrupted) {
+    processEventBlock(remaining);
+  }
+
+  if (interrupted && interruptData) {
+    return {
+      interrupted: true,
+      interruptData,
+      response: aggregatedResponse,
+      model: "",
+    };
+  }
+
+  return {
+    response: aggregatedResponse,
+    model: "",
+  };
+};
+
+const performScreenAction = async (payload: ScreenActionRequest): Promise<ScreenActionResult> => {
+  const coordinates = payload.coordinates;
+  if (!coordinates || typeof coordinates.x_ratio !== "number" || typeof coordinates.y_ratio !== "number") {
+    return { executed: false, error: "缺少有效的屏幕坐标" };
+  }
+
+  try {
+    const nut = await import("@nut-tree-fork/nut-js");
+    const display = screen.getPrimaryDisplay();
+    const bounds = display.bounds;
+    const x = Math.round(bounds.x + coordinates.x_ratio * bounds.width);
+    const y = Math.round(bounds.y + coordinates.y_ratio * bounds.height);
+    const point = new nut.Point(x, y);
+
+    await nut.mouse.setPosition(point);
+    if (payload.operation === "click") {
+      await nut.mouse.click(nut.Button.LEFT);
+    } else if (payload.operation === "double") {
+      await nut.mouse.doubleClick(nut.Button.LEFT);
+    } else if (payload.operation === "right") {
+      await nut.mouse.click(nut.Button.RIGHT);
+    } else if (payload.operation === "scroll") {
+      if (payload.scroll_direction === "up") {
+        await nut.mouse.scrollUp(6);
+      } else if (payload.scroll_direction === "down") {
+        await nut.mouse.scrollDown(6);
+      } else {
+        return { executed: false, error: "滚动操作缺少方向" };
+      }
+    } else {
+      return { executed: false, error: `不支持的操作方式: ${payload.operation}` };
+    }
+
+    if (payload.text) {
+      await nut.keyboard.type(payload.text);
+      if (payload.press_enter) {
+        await nut.keyboard.pressKey(nut.Key.Enter);
+        await nut.keyboard.releaseKey(nut.Key.Enter);
+      }
+    }
+
+    return { executed: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[ControlScreen] 屏幕操作失败:", error);
+    return { executed: false, error: message };
+  }
 };
 
 /**
@@ -833,6 +1025,80 @@ export const registerIpcHandlers = (): void => {
       } finally {
         clearTimeout(timeoutTimer);
       }
+    }
+  );
+
+  // 屏幕控制工具响应
+  ipcMain.handle(
+    "desktop-pet:control-screen-respond",
+    async (
+      event,
+      payload: {
+        sessionId: string;
+        approved?: boolean;
+        requestId?: string;
+        screenshotData?: string;
+        width?: number;
+        height?: number;
+        executed?: boolean;
+        error?: string;
+      }
+    ) => {
+      const { sessionId, approved, requestId, screenshotData, width, height, executed, error } = payload;
+
+      const abortController = new AbortController();
+      const timeoutTimer = setTimeout(() => {
+        abortController.abort();
+      }, CHAT_REQUEST_TIMEOUT_MS);
+
+      try {
+        const requestBody: Record<string, unknown> = {
+          session_id: sessionId,
+        };
+        if (approved !== undefined) requestBody.approved = approved;
+        if (screenshotData) requestBody.screenshot_data = screenshotData;
+        if (width !== undefined) requestBody.width = width;
+        if (height !== undefined) requestBody.height = height;
+        if (executed !== undefined) requestBody.executed = executed;
+        if (error) requestBody.error = error;
+
+        const res = await net.fetch(`${BACKEND_BASE_URL}/control-screen/respond`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+          signal: abortController.signal,
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || `请求失败: ${res.status}`);
+        }
+
+        return await streamBackendResponse(
+          event,
+          res,
+          requestId,
+          "屏幕控制响应流返回错误事件"
+        );
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (error instanceof Error && error.name === "AbortError") {
+          throw new Error("Control screen respond timeout (900s), please try again later");
+        }
+        throw new Error(errorMessage);
+      } finally {
+        clearTimeout(timeoutTimer);
+      }
+    }
+  );
+
+  // 执行屏幕控制动作
+  ipcMain.handle(
+    "desktop-pet:perform-screen-action",
+    async (_event, payload: ScreenActionRequest): Promise<ScreenActionResult> => {
+      return await performScreenAction(payload);
     }
   );
 

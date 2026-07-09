@@ -47,11 +47,14 @@ class InterruptEvent:
         """
         发给前端的最小字段（SSE value）。
         """
-        return {
+        payload = {
             "type": self.type,
             "request_id": self.request_id,
             "message": self.message,
         }
+        if self.data:
+            payload["data"] = self.data
+        return payload
 
     def to_state(self) -> dict:
         """写入 AgentState.interrupt_data 的完整持久化快照"""

@@ -75,7 +75,11 @@ const desktopPetApi: DesktopPetApi = {
       width,
       height,
     }),
+  controlScreenRespond: (payload) =>
+    ipcRenderer.invoke("desktop-pet:control-screen-respond", payload),
   captureScreen: () => ipcRenderer.invoke("desktop-pet:capture-screen"),
+  performScreenAction: (payload) =>
+    ipcRenderer.invoke("desktop-pet:perform-screen-action", payload),
   onChatInterrupt: (listener) =>
     subscribe<ScreenshotInterruptPayload>("desktop-pet:chat-interrupt", listener),
   onToolCall: (listener) =>

@@ -382,7 +382,7 @@ def test_chat_rejects_unresolved_interrupt_without_mutating_messages(tmp_path: P
         try:
             events = await drain(second_agent.run("新消息"))
             assert events[-1].type == EventType.ERROR
-            assert "截屏确认" in events[-1].data
+            assert "前端确认" in events[-1].data
             after = await second_agent.state_manager.load()
             assert after.messages == before_messages
         finally:
