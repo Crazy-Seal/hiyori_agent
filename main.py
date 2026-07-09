@@ -1,5 +1,6 @@
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 
@@ -12,6 +13,7 @@ if not is_test_environment():
 import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from app.agent.core.state_manager import StateManager
 
 from app.routes.agent import router as agent_router
 from app.routes.chat_settings import router as chat_settings_router
@@ -27,8 +29,19 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """在任何 DAO 或记忆组件访问前完成统一存储初始化和迁移。"""
+    manager = StateManager("__storage_init__")
+    try:
+        await manager._get_db()
+    finally:
+        await manager.close()
+    yield
+
+
 # FastAPI 应用入口：仅负责启动和挂载路由
-app = FastAPI(title="Ayaya server", version="0.1.0")
+app = FastAPI(title="Ayaya server", version="0.1.0", lifespan=lifespan)
 # 挂载 Agent 相关 API
 app.include_router(agent_router)
 app.include_router(chat_settings_router)

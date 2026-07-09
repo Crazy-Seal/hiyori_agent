@@ -81,7 +81,9 @@ class AgentState(BaseModel):
 
     def get_openai_messages(self) -> list[dict]:
         """获取 OpenAI 格式的消息列表（用于 API 调用）"""
-        return self.messages
+        from app.agent.utils.domain.text import normalize_messages_for_model
+
+        return normalize_messages_for_model(self.messages)
 
     # ==================== 工具调用操作 ====================
 

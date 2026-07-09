@@ -170,13 +170,7 @@ const streamBackendResponse = async (
     }
 
     if (eventName === "error") {
-      if (requestId) {
-        event.sender.send("desktop-pet:chat-agent-error", {
-          requestId,
-          errorMessage: parsed.detail || errorFallback,
-        });
-      }
-      return { done: true };
+      throw new Error(parsed.detail || errorFallback);
     }
 
     if (typeof parsed.response === "string" && parsed.response.length > 0) {
@@ -385,6 +379,20 @@ export const registerIpcHandlers = (): void => {
       return await fetchChatHistoryLastN(sessionId, n);
     }
   );
+
+  ipcMain.handle("desktop-pet:get-pending-interrupt", async (_event, sessionId: string) => {
+    const res = await net.fetch(
+      `${BACKEND_BASE_URL}/agent/pending-interrupt/${encodeURIComponent(sessionId)}`
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || `读取待处理中断失败: ${res.status}`);
+    }
+    const result = await res.json() as {
+      data?: import("./types.js").PendingInterruptResult;
+    };
+    return result.data ?? { pending: false };
+  });
 
   // 更新聊天设置
   ipcMain.handle("desktop-pet:update-chat-settings", async (_event, payload: ChatSettingsData) => {
@@ -736,14 +744,7 @@ export const registerIpcHandlers = (): void => {
           }
 
           if (eventName === "error") {
-            // 发送错误事件到渲染进程
-            if (requestId) {
-              event.sender.send("desktop-pet:chat-agent-error", {
-                requestId,
-                errorMessage: parsed.detail || "聊天流返回错误事件",
-              });
-            }
-            return { done: true };
+            throw new Error(parsed.detail || "聊天流返回错误事件");
           }
 
           if (typeof parsed.response === "string" && parsed.response.length > 0) {
@@ -942,14 +943,7 @@ export const registerIpcHandlers = (): void => {
           }
 
           if (eventName === "error") {
-            // 发送错误事件到渲染进程
-            if (requestId) {
-              event.sender.send("desktop-pet:chat-agent-error", {
-                requestId,
-                errorMessage: parsed.detail || "截屏响应流返回错误事件",
-              });
-            }
-            return { done: true };
+            throw new Error(parsed.detail || "截屏响应流返回错误事件");
           }
 
           if (typeof parsed.response === "string" && parsed.response.length > 0) {

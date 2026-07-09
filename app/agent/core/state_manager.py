@@ -38,6 +38,7 @@ class StateManager:
         self.session_id = session_id
         self.db_path = str(db_path or get_checkpoint_db())
         self._db: aiosqlite.Connection | None = None
+        self.last_loaded_checkpoint_type: CheckpointType | None = None
 
     async def _get_db(self) -> aiosqlite.Connection:
         """获取数据库连接。"""
@@ -85,10 +86,17 @@ class StateManager:
             await db.execute(
                 "ALTER TABLE chat_history ADD COLUMN source_message_id TEXT"
             )
+        index_rows = await db.execute_fetchall(
+            """
+            SELECT sql FROM sqlite_master
+            WHERE type = 'index' AND name = 'idx_chat_history_source_message'
+            """
+        )
+        if index_rows and " WHERE " in (index_rows[0][0] or "").upper():
+            await db.execute("DROP INDEX idx_chat_history_source_message")
         await db.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_history_source_message
             ON chat_history(source_message_id)
-            WHERE source_message_id IS NOT NULL
         """)
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_chat_history_thread_timestamp
@@ -151,6 +159,7 @@ class StateManager:
                     ORDER BY id
                     """
                 )
+            await self._merge_latest_checkpoint_tails(db)
             await db.execute(
                 """
                 INSERT INTO storage_migrations(version, applied_at)
@@ -165,6 +174,85 @@ class StateManager:
         finally:
             if attached:
                 await db.execute("DETACH DATABASE legacy_chat")
+
+    async def _merge_latest_checkpoint_tails(
+        self,
+        db: aiosqlite.Connection,
+    ) -> None:
+        """迁移时把最新 checkpoint 中缺失的可见尾部补入聊天记录。"""
+        checkpoint_rows = await db.execute_fetchall(
+            """
+            SELECT c.id, c.state_json
+            FROM checkpoints c
+            JOIN (
+                SELECT session_id, MAX(id) AS latest_id
+                FROM checkpoints
+                GROUP BY session_id
+            ) latest ON latest.latest_id = c.id
+            """
+        )
+        for checkpoint_id, state_json in checkpoint_rows:
+            state = AgentState.from_checkpoint(json.loads(state_json))
+            self._ensure_message_metadata(state)
+            projected = self._history_rows(state)
+            existing = await db.execute_fetchall(
+                """
+                SELECT id, role, content
+                FROM chat_history
+                WHERE thread_id = ?
+                ORDER BY timestamp, id
+                """,
+                (state.session_id,),
+            )
+
+            max_overlap = min(len(existing), len(projected))
+            overlap = 0
+            for size in range(max_overlap, 0, -1):
+                existing_tail = [
+                    (row[1], row[2]) for row in existing[-size:]
+                ]
+                projected_head = [
+                    (row[2], row[3]) for row in projected[:size]
+                ]
+                if existing_tail == projected_head:
+                    overlap = size
+                    break
+
+            if overlap:
+                for existing_row, projected_row in zip(
+                    existing[-overlap:],
+                    projected[:overlap],
+                ):
+                    await db.execute(
+                        """
+                        UPDATE chat_history
+                        SET source_message_id = COALESCE(source_message_id, ?)
+                        WHERE id = ?
+                        """,
+                        (projected_row[6], existing_row[0]),
+                    )
+
+            if projected[overlap:]:
+                await db.executemany(
+                    """
+                    INSERT OR IGNORE INTO chat_history (
+                        thread_id, timestamp, role, content,
+                        image_description, image_filenames, source_message_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    projected[overlap:],
+                )
+            await db.execute(
+                "UPDATE checkpoints SET state_json = ? WHERE id = ?",
+                (
+                    json.dumps(
+                        state.to_checkpoint(),
+                        ensure_ascii=False,
+                        default=str,
+                    ),
+                    checkpoint_id,
+                ),
+            )
 
     @staticmethod
     def _ensure_message_metadata(state: AgentState) -> None:
@@ -238,7 +326,7 @@ class StateManager:
 
         async with db.execute(
             """
-            SELECT id, state_json FROM checkpoints
+            SELECT id, state_json, checkpoint_type FROM checkpoints
             WHERE session_id = ?
             ORDER BY id DESC
             LIMIT 1
@@ -248,12 +336,14 @@ class StateManager:
             row = await cursor.fetchone()
 
         if row:
-            checkpoint_id, state_json = row
+            checkpoint_id, state_json, checkpoint_type = row
+            self.last_loaded_checkpoint_type = checkpoint_type
             state = AgentState.from_checkpoint(json.loads(state_json))
             logger.info("从 checkpoint %s 恢复状态: %s", checkpoint_id, self.session_id)
             return state
 
         logger.info("创建新状态: %s", self.session_id)
+        self.last_loaded_checkpoint_type = None
         return AgentState.create_new(self.session_id)
 
     async def save(
@@ -311,10 +401,19 @@ class StateManager:
             if history_rows:
                 await db.executemany(
                     """
-                    INSERT OR IGNORE INTO chat_history (
+                    INSERT INTO chat_history (
                         thread_id, timestamp, role, content,
                         image_description, image_filenames, source_message_id
                     ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(source_message_id) DO UPDATE SET
+                        image_description = COALESCE(
+                            excluded.image_description,
+                            chat_history.image_description
+                        ),
+                        image_filenames = COALESCE(
+                            excluded.image_filenames,
+                            chat_history.image_filenames
+                        )
                     """,
                     history_rows,
                 )

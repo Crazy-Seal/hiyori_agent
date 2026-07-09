@@ -48,6 +48,7 @@ export class ChatHistoryManager {
   private messages: ChatHistoryItem[] = [];
   private isStreaming = false;
   private streamingContent = "";
+  private streamingDraftItems: HTMLElement[] = [];
   private outputSentenceCount = 0;
   private typingIndicator: HTMLDivElement | null = null;
   private toolCallIndicator: HTMLDivElement | null = null;
@@ -192,6 +193,7 @@ export class ChatHistoryManager {
    * 启动流式响应状态
    */
   startStreaming(): void {
+    this.abortStreaming();
     this.streamingContent = "";
     this.isStreaming = true;
     this.outputSentenceCount = 0;
@@ -203,11 +205,22 @@ export class ChatHistoryManager {
    * 停止流式响应状态
    */
   stopStreaming(): void {
+    this.abortStreaming();
+  }
+
+  /**
+   * 丢弃本次未完成的流式草稿。
+   */
+  abortStreaming(): void {
     this.isStreaming = false;
     this.stopOutputTimer();
     this.sentenceQueue = [];
     this.outputSentenceCount = 0;
     this.streamingContent = "";
+    for (const item of this.streamingDraftItems) {
+      item.remove();
+    }
+    this.streamingDraftItems = [];
   }
 
   /**
@@ -258,6 +271,8 @@ export class ChatHistoryManager {
     if (remaining.trim().length > 0) {
       this.sentenceQueue.push(remaining.trim());
     }
+    this.flushQueue();
+    this.stopOutputTimer();
 
     // 存入 messages 数组（用于历史记录和重新渲染）
     if (this.streamingContent) {
@@ -270,6 +285,7 @@ export class ChatHistoryManager {
 
     this.streamingContent = "";
     this.outputSentenceCount = 0;
+    this.streamingDraftItems = [];
   }
 
   /**
@@ -348,6 +364,7 @@ export class ChatHistoryManager {
 
     item.appendChild(bubble);
     this.container.appendChild(item);
+    this.streamingDraftItems.push(item);
   }
 
   /**

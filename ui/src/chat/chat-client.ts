@@ -173,6 +173,122 @@ export class ChatClient {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  private async respondToInterrupt(
+    interruptData: ChatInterruptPayload,
+    requestId: string
+  ): Promise<ChatResult | undefined> {
+    const interruptValue = interruptData.value;
+    if (interruptValue.type === "screenshot_request") {
+      const approved = await this.screenshotConfirmDialog.open(
+        interruptValue.message || "Agent 请求截取屏幕，是否允许？"
+      );
+      if (!approved) {
+        return await window.desktopPetApi.screenshotRespond?.(
+          this.sessionId,
+          false,
+          requestId
+        );
+      }
+      const screenshot = await this.captureScreenWithUserPreference();
+      return await window.desktopPetApi.screenshotRespond?.(
+        this.sessionId,
+        true,
+        requestId,
+        screenshot?.dataUrl,
+        screenshot?.width,
+        screenshot?.height
+      );
+    }
+
+    if (interruptValue.type === "control_screen_capture_request") {
+      const screenshot = await this.captureScreenWithUserPreference();
+      return await window.desktopPetApi.controlScreenRespond?.({
+        sessionId: this.sessionId,
+        requestId,
+        screenshotData: screenshot?.dataUrl,
+        width: screenshot?.width,
+        height: screenshot?.height,
+      });
+    }
+
+    const action = interruptValue.data;
+    const approved = await this.screenshotConfirmDialog.open(
+      this.formatControlScreenMessage(action)
+    );
+    if (!approved) {
+      return await window.desktopPetApi.controlScreenRespond?.({
+        sessionId: this.sessionId,
+        requestId,
+        approved: false,
+      });
+    }
+    const actionResult = await this.performControlScreenAction(action);
+    return await window.desktopPetApi.controlScreenRespond?.({
+      sessionId: this.sessionId,
+      requestId,
+      approved: true,
+      executed: actionResult.executed,
+      error: actionResult.error,
+      screenshotData: actionResult.screenshot?.dataUrl,
+      width: actionResult.screenshot?.width,
+      height: actionResult.screenshot?.height,
+    });
+  }
+
+  async restorePendingInterrupt(initialInterrupt: ChatInterruptPayload): Promise<void> {
+    if (this.screenshotConfirmDialog.isOpen()) {
+      return;
+    }
+
+    const requestId = `resume-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    let streamedText = "";
+    this.sendBtn.disabled = true;
+    this.chatHistory.showTypingIndicator();
+    this.chatHistory.startStreaming();
+
+    const unsubscribeChunk = window.desktopPetApi.onChatChunk(({ requestId: id, chunk }) => {
+      if (id !== requestId) return;
+      this.chatHistory.hideTypingIndicator();
+      streamedText += chunk;
+      const { text } = this.parseExpressionTags(streamedText);
+      this.bubble.setText(text);
+      this.chatHistory.updateLastAiMessage(text);
+    });
+    const unsubscribeTool = window.desktopPetApi.onToolCall?.((data) => {
+      if (data.requestId !== requestId) return;
+      this.chatHistory.showToolCallMessage(data.toolName);
+      this.toolCallToast.show(data.toolName);
+    });
+
+    try {
+      let interrupt: ChatInterruptPayload | undefined = initialInterrupt;
+      let result: ChatResult | undefined;
+      while (interrupt) {
+        result = await this.respondToInterrupt(interrupt, requestId);
+        interrupt = result?.interrupted ? result.interruptData : undefined;
+      }
+      const { text, tags } = this.parseExpressionTags(streamedText || result?.response || "");
+      for (const tag of tags) this.playMotionForTag(tag);
+      this.bubble.setText(text);
+      this.chatHistory.updateLastAiMessage(text);
+      this.chatHistory.finalizeStreamingMessage();
+      await this.chatHistory.loadHistory(this.sessionId);
+      this.onChatComplete?.();
+    } catch (error) {
+      const errorMessage = `恢复对话失败: ${String(error)}`;
+      this.bubble.setText(errorMessage);
+      this.chatHistory.abortStreaming();
+      this.chatHistory.showErrorMessage(errorMessage);
+      this.toolCallToast.showError(errorMessage);
+    } finally {
+      unsubscribeChunk();
+      unsubscribeTool?.();
+      this.chatHistory.hideTypingIndicator();
+      this.sendBtn.disabled = false;
+      this.input.focus();
+    }
+  }
+
   /**
    * 发送聊天消息
    */
@@ -217,7 +333,9 @@ export class ChatClient {
       const baseText = cleanText || "思考中...";
       this.bubble.setText(`${baseText}${cursorVisible ? "▋" : ""}`);
       // 更新聊天历史中的 AI 消息（使用清理后的文本）
-      this.chatHistory.updateLastAiMessage(baseText);
+      if (cleanText) {
+        this.chatHistory.updateLastAiMessage(cleanText);
+      }
     };
 
     const stopCursor = () => {
@@ -272,69 +390,14 @@ export class ChatClient {
         stopCursor();
         this.isWaitingForScreenshotApproval = true;
         this.chatHistory.hideTypingIndicator();
+        this.chatHistory.finalizeStreamingMessage();
+        streamedText = "";
+        this.chatHistory.startStreaming();
 
         try {
           startCursor();
 
-          let respondResult: ChatResult | undefined;
-          const interruptValue = interruptData.value;
-
-          if (interruptValue.type === "screenshot_request") {
-            const interruptMessage = interruptValue.message || "Agent 请求截取屏幕，是否允许？";
-            const approved = await this.screenshotConfirmDialog.open(interruptMessage);
-
-            if (approved) {
-              const screenshot = await this.captureScreenWithUserPreference();
-              respondResult = await window.desktopPetApi.screenshotRespond?.(
-                this.sessionId,
-                true,
-                requestId,
-                screenshot?.dataUrl,
-                screenshot?.width,
-                screenshot?.height
-              );
-            } else {
-              respondResult = await window.desktopPetApi.screenshotRespond?.(
-                this.sessionId,
-                false,
-                requestId
-              );
-            }
-          } else if (interruptValue.type === "control_screen_capture_request") {
-            const screenshot = await this.captureScreenWithUserPreference();
-            respondResult = await window.desktopPetApi.controlScreenRespond?.({
-              sessionId: this.sessionId,
-              requestId,
-              screenshotData: screenshot?.dataUrl,
-              width: screenshot?.width,
-              height: screenshot?.height,
-            });
-          } else if (interruptValue.type === "control_screen_execute_request") {
-            const action = interruptValue.data;
-            const approved = await this.screenshotConfirmDialog.open(
-              this.formatControlScreenMessage(action)
-            );
-
-            if (!approved) {
-              respondResult = await window.desktopPetApi.controlScreenRespond?.({
-                sessionId: this.sessionId,
-                requestId,
-                approved: false,
-              });
-            } else {
-              const actionResult = await this.performControlScreenAction(action);
-              respondResult = await window.desktopPetApi.controlScreenRespond?.({
-                sessionId: this.sessionId,
-                requestId,
-                approved: true,
-                executed: actionResult.executed,
-                error: actionResult.error,
-                screenshotData: actionResult.screenshot?.dataUrl,
-                width: actionResult.screenshot?.width,
-                height: actionResult.screenshot?.height,
-              });
-            }
-          }
+          const respondResult = await this.respondToInterrupt(interruptData, requestId);
 
           if (respondResult?.interrupted) {
             return;
@@ -366,8 +429,9 @@ export class ChatClient {
           stopCursor();
           const errorMessage = `前端中断响应失败: ${String(error)}`;
           this.bubble.setText(errorMessage);
-          this.chatHistory.updateLastAiMessage(errorMessage);
-          this.chatHistory.finalizeStreamingMessage();
+          this.chatHistory.abortStreaming();
+          this.chatHistory.showErrorMessage(errorMessage);
+          this.toolCallToast.showError(errorMessage);
 
           // 清理所有监听器
           unsubscribeChatChunk();
@@ -393,35 +457,6 @@ export class ChatClient {
       this.toolCallToast.show(data.toolName);
       // 标记有待最终化的工具调用指示器
       hasPendingToolCallIndicator = true;
-    });
-
-    // 监听 Agent 错误事件
-    const unsubscribeAgentError = window.desktopPetApi.onChatAgentError?.((data) => {
-      if (data.requestId !== requestId) {
-        return;
-      }
-      // 停止光标动画
-      stopCursor();
-      // 隐藏正在输入提示
-      this.chatHistory.hideTypingIndicator();
-      // 停止流式状态
-      this.chatHistory.stopStreaming();
-      // 清空气泡
-      this.bubble.setText("");
-      // 在聊天历史中显示错误消息（灰色小框）
-      const errorMsg = `出现错误: ${data.errorMessage}`;
-      this.chatHistory.showErrorMessage(errorMsg);
-      // 在 Live2D 右侧显示错误提示框
-      this.toolCallToast.showError(errorMsg);
-
-      // 清理监听器
-      unsubscribeChatChunk();
-      unsubscribeChatInterrupt?.();
-      unsubscribeToolCall?.();
-      unsubscribeAgentError?.();
-      this.sendBtn.disabled = false;
-      this.input.focus();
-      this.onChatComplete?.();
     });
 
     // 标记是否被中断（用于 finally 块判断）
@@ -469,8 +504,9 @@ export class ChatClient {
       stopCursor();
       const errorMessage = `请求失败: ${String(error)}`;
       this.bubble.setText(errorMessage);
-      this.chatHistory.updateLastAiMessage(errorMessage);
-      this.chatHistory.finalizeStreamingMessage();
+      this.chatHistory.abortStreaming();
+      this.chatHistory.showErrorMessage(errorMessage);
+      this.toolCallToast.showError(errorMessage);
 
       unsubscribeChatInterrupt?.();
       unsubscribeToolCall?.();

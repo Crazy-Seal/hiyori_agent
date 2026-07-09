@@ -16,6 +16,7 @@ import type {
   ModelTransformData,
   MotionConfig as SharedMotionConfig,
   MotionSettingType as SharedMotionSettingType,
+  PendingInterruptResult as SharedPendingInterruptResult,
   PluginItem as SharedPluginItem,
   ScreenActionRequest as SharedScreenActionRequest,
   ScreenActionResult as SharedScreenActionResult,
@@ -38,6 +39,7 @@ export type ChatInterruptPayload = SharedChatInterruptPayload;
 export type ScreenshotInterruptPayload = SharedChatInterruptPayload;
 export type ScreenshotInterruptData = SharedChatInterruptPayload["value"];
 export type ChatResult = SharedChatResult;
+export type PendingInterruptResult = SharedPendingInterruptResult;
 export type ToolCallEventPayload = ToolCallEventData;
 export type FrontendSettings = SharedFrontendSettings;
 export type ImportPreview = SharedImportPreview;

@@ -84,6 +84,7 @@ export type ToolItem = {
 };
 
 export type ChatHistoryItem = {
+  id?: string;
   role: string;
   content: string;
   timestamp: string;
@@ -177,6 +178,10 @@ export type ChatInterruptPayload = {
   value: ChatInterruptData;
 };
 
+export type PendingInterruptResult =
+  | { pending: false }
+  | { pending: true; interrupt: ChatInterruptPayload };
+
 export type ScreenshotInterruptPayload = ChatInterruptPayload;
 
 export type ChatResult =
@@ -191,11 +196,6 @@ export type ChatResult =
 export type ToolCallEventData = {
   requestId: string;
   toolName: string;
-};
-
-export type AgentErrorEventData = {
-  requestId: string;
-  errorMessage: string;
 };
 
 export type FrontendSettings = {
@@ -239,6 +239,7 @@ export interface DesktopPetApi {
   }>;
   getChatHistory: (sessionId: string, start: number, limit: number) => Promise<ChatHistoryItem[]>;
   getChatHistoryLastN: (sessionId: string, n: number) => Promise<ChatHistoryItem[]>;
+  getPendingInterrupt: (sessionId: string) => Promise<PendingInterruptResult>;
   updateChatSettings: (settings: ChatSettingsData) => Promise<ApiResponse<never>>;
   getAvailableTools: () => Promise<{ tools: ToolItem[] }>;
   getAvailablePlugins: () => Promise<{ plugins: PluginItem[] }>;
@@ -288,7 +289,6 @@ export interface DesktopPetApi {
   performScreenAction?: (payload: ScreenActionRequest) => Promise<ScreenActionResult>;
   onChatInterrupt?: (callback: (data: ChatInterruptPayload) => void) => () => void;
   onToolCall?: (callback: (data: ToolCallEventData) => void) => () => void;
-  onChatAgentError?: (callback: (data: AgentErrorEventData) => void) => () => void;
   getFrontendSettings: () => Promise<FrontendSettings>;
   updateFrontendSettings: (settings: Partial<FrontendSettings>) => Promise<FrontendSettings>;
   getMotionConfig: (modelId: string) => Promise<MotionConfig[]>;

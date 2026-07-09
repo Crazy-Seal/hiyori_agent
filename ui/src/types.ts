@@ -2,7 +2,6 @@
  * 渲染进程使用的共享 IPC 类型。
  */
 export type {
-  AgentErrorEventData,
   ApiResponse,
   ChatChunkData,
   ChatInterruptPayload,
@@ -19,6 +18,7 @@ export type {
   ModelTransformData,
   MotionConfig,
   MotionSettingType,
+  PendingInterruptResult,
   ScreenActionRequest,
   ScreenActionResult,
   ScreenshotInterruptPayload,

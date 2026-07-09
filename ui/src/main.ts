@@ -319,7 +319,13 @@ class MainApp {
     let historyLoaded = false;
     try {
       await this.chatHistoryManager.loadHistory(activeModel.sessionId);
+      const pendingInterrupt = await window.desktopPetApi.getPendingInterrupt(
+        activeModel.sessionId
+      );
       historyLoaded = true;
+      if (pendingInterrupt.pending) {
+        void this.chatClient.restorePendingInterrupt(pendingInterrupt.interrupt);
+      }
     } catch {
       // 后端未开启，等待轮询成功后重试
     }
@@ -332,7 +338,20 @@ class MainApp {
       () => {
         // 首次成功连接后端时，如果历史未加载则尝试加载
         if (!historyLoaded) {
-          void this.chatHistoryManager.loadHistory(activeModel.sessionId);
+          void (async () => {
+            try {
+              await this.chatHistoryManager.loadHistory(activeModel.sessionId);
+              const pendingInterrupt = await window.desktopPetApi.getPendingInterrupt(
+                activeModel.sessionId
+              );
+              historyLoaded = true;
+              if (pendingInterrupt.pending) {
+                await this.chatClient.restorePendingInterrupt(pendingInterrupt.interrupt);
+              }
+            } catch {
+              // 保持未加载状态，等待下一次连接轮询重试。
+            }
+          })();
         }
       }
     );

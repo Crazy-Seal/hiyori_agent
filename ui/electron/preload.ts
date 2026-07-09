@@ -1,7 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
 import type {
-  AgentErrorEventData,
   ChatChunkData,
   DesktopPetApi,
   ModelInfo,
@@ -48,6 +47,8 @@ const desktopPetApi: DesktopPetApi = {
     ipcRenderer.invoke("desktop-pet:get-chat-history", sessionId, start, limit),
   getChatHistoryLastN: (sessionId, n) =>
     ipcRenderer.invoke("desktop-pet:get-chat-history-last-n", sessionId, n),
+  getPendingInterrupt: (sessionId) =>
+    ipcRenderer.invoke("desktop-pet:get-pending-interrupt", sessionId),
   updateChatSettings: (payload) =>
     ipcRenderer.invoke("desktop-pet:update-chat-settings", payload),
   getAvailableTools: () => ipcRenderer.invoke("desktop-pet:get-available-tools"),
@@ -84,8 +85,6 @@ const desktopPetApi: DesktopPetApi = {
     subscribe<ScreenshotInterruptPayload>("desktop-pet:chat-interrupt", listener),
   onToolCall: (listener) =>
     subscribe<ToolCallEventData>("desktop-pet:chat-tool-call", listener),
-  onChatAgentError: (listener) =>
-    subscribe<AgentErrorEventData>("desktop-pet:chat-agent-error", listener),
   getFrontendSettings: () => ipcRenderer.invoke("desktop-pet:get-frontend-settings"),
   updateFrontendSettings: (settings) =>
     ipcRenderer.invoke("desktop-pet:update-frontend-settings", settings),

@@ -74,10 +74,17 @@ class ChatHistoryStore:
                 conn.execute(f"ALTER TABLE {self.TABLE_NAME} ADD COLUMN source_message_id TEXT")
             except sqlite3.OperationalError:
                 pass
+            index_row = conn.execute(
+                """
+                SELECT sql FROM sqlite_master
+                WHERE type = 'index' AND name = 'idx_chat_history_source_message'
+                """
+            ).fetchone()
+            if index_row and " WHERE " in (index_row[0] or "").upper():
+                conn.execute("DROP INDEX idx_chat_history_source_message")
             conn.execute(f"""
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_history_source_message
                 ON {self.TABLE_NAME}(source_message_id)
-                WHERE source_message_id IS NOT NULL
             """)
             conn.commit()
 

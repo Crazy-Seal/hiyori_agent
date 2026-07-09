@@ -1,5 +1,6 @@
 import asyncio
 import json
+import sqlite3
 from pathlib import Path
 
 import aiosqlite
@@ -7,6 +8,8 @@ import pytest
 
 from app.agent.core.state_manager import StateManager
 from app.agent.state import AgentState
+from app.agent.message import AssistantMessageWithTools, MessageRole, ToolCall
+import app.agent.core.state_manager as state_manager_module
 from app.runtime import get_agent_state_db, get_chat_history_db, get_checkpoint_db
 
 
@@ -156,6 +159,100 @@ def test_checkpoint_and_visible_history_are_saved_atomically(tmp_path: Path) -> 
             )[0][0]
             assert checkpoint_count == 1
             assert history_count == 2
+        finally:
+            await manager.close()
+
+    asyncio.run(scenario())
+
+
+def test_legacy_chat_history_migration_merges_checkpoint_tail(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    target = tmp_path / "agent_checkpoints.sqlite3"
+    legacy = tmp_path / "chat_history.sqlite3"
+
+    state = AgentState.create_new("test-session")
+    state.add_user_message("旧问题")
+    state.add_message(
+        AssistantMessageWithTools(
+            role=MessageRole.ASSISTANT,
+            content="准备截图",
+            tool_calls=[ToolCall(id="shot-1", name="screenshot", args={})],
+        )
+    )
+
+    with sqlite3.connect(target) as conn:
+        conn.execute(
+            """
+            CREATE TABLE checkpoints (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                state_json TEXT NOT NULL,
+                checkpoint_type TEXT NOT NULL,
+                created_at TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO checkpoints(session_id, state_json, checkpoint_type, created_at)
+            VALUES (?, ?, 'intermediate', CURRENT_TIMESTAMP)
+            """,
+            ("test-session", json.dumps(state.to_checkpoint(), default=str)),
+        )
+
+    with sqlite3.connect(legacy) as conn:
+        conn.execute(
+            """
+            CREATE TABLE chat_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                thread_id TEXT NOT NULL,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                image_description TEXT,
+                image_filenames TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO chat_history(thread_id, role, content)
+            VALUES ('test-session', 'Human', '旧问题')
+            """
+        )
+
+    monkeypatch.setattr(state_manager_module, "get_checkpoint_db", lambda: target)
+    monkeypatch.setattr(
+        state_manager_module,
+        "get_legacy_chat_history_db",
+        lambda: legacy,
+    )
+
+    async def scenario() -> None:
+        manager = StateManager("test-session")
+        try:
+            db = await manager._get_db()
+            rows = await db.execute_fetchall(
+                """
+                SELECT role, content, source_message_id
+                FROM chat_history
+                ORDER BY id
+                """
+            )
+            assert [(row[0], row[1]) for row in rows] == [
+                ("Human", "旧问题"),
+                ("AI", "准备截图"),
+                ("AI_Tool_Calling", "调用了工具: screenshot"),
+            ]
+            assert all(row[2] for row in rows)
+            assert await db.execute_fetchall(
+                """
+                SELECT version FROM storage_migrations
+                WHERE version = 'chat-history-unified-v1'
+                """
+            )
         finally:
             await manager.close()
 
