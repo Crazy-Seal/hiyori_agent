@@ -19,6 +19,15 @@ def health_check(
     return Result(data=agent_service.get_health_data(session_id), msg="success", code=200)
 
 
+@router.get("/agent/pending-interrupt/{session_id}")
+async def pending_interrupt(
+    session_id: str,
+    agent_service: AgentService = Depends(get_agent_service),
+) -> Result:
+    data = await agent_service.get_pending_interrupt(session_id)
+    return Result(data=data, msg="success", code=200)
+
+
 @router.post("/chat")
 async def chat(
     payload: ChatRequest,

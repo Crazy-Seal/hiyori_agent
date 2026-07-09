@@ -58,7 +58,8 @@ class ChatHistoryStore:
                     role TEXT NOT NULL,
                     content TEXT NOT NULL,
                     image_description TEXT,
-                    image_filenames TEXT
+                    image_filenames TEXT,
+                    source_message_id TEXT
                 )
             """)
             conn.execute(f"""
@@ -69,6 +70,15 @@ class ChatHistoryStore:
                 conn.execute(f"ALTER TABLE {self.TABLE_NAME} ADD COLUMN image_filenames TEXT")
             except sqlite3.OperationalError:
                 pass
+            try:
+                conn.execute(f"ALTER TABLE {self.TABLE_NAME} ADD COLUMN source_message_id TEXT")
+            except sqlite3.OperationalError:
+                pass
+            conn.execute(f"""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_history_source_message
+                ON {self.TABLE_NAME}(source_message_id)
+                WHERE source_message_id IS NOT NULL
+            """)
             conn.commit()
 
     def _local_date_to_utc_range(self, local_date: date) -> tuple[datetime, datetime]:

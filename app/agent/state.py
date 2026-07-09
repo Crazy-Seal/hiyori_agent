@@ -6,6 +6,7 @@ Agent 状态定义
 from pydantic import BaseModel, Field
 from typing import Any
 from datetime import datetime
+from uuid import uuid4
 
 from app.agent.message import (
     Message,
@@ -48,7 +49,10 @@ class AgentState(BaseModel):
 
     def add_message(self, message: Message) -> None:
         """添加消息"""
-        self.messages.append(message.to_openai_format())
+        serialized = message.to_openai_format()
+        serialized["_message_id"] = uuid4().hex
+        serialized["_created_at"] = message.timestamp.isoformat()
+        self.messages.append(serialized)
         self.updated_at = datetime.now()
 
     def add_user_message(self, content: str | list[ContentPart]) -> None:

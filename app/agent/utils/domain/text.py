@@ -115,7 +115,13 @@ def normalize_messages_for_model(messages: list[dict]) -> list[dict]:
     normalized: list[dict] = []
     tool_call_names: dict[str, str] = {}
 
-    for message in messages:
+    for original_message in messages:
+        message = {
+            key: value
+            for key, value in original_message.items()
+            if not key.startswith("_")
+            and key not in {"image_description", "image_filenames"}
+        }
         role = message.get("role")
 
         if role == "assistant":

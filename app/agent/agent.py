@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any, AsyncIterator
 
 from app.agent.state import AgentState
-from app.agent.message import ContentPart
+from app.agent.message import ContentPart, ToolCall
 from app.agent.context import BaseTool, BasePlugin
 from app.agent.core.tool_manager import ToolManager
 from app.agent.core.plugin_manager import PluginManager
@@ -23,6 +23,12 @@ logger = logging.getLogger(__name__)
 INTERRUPTED_TOOL_RESULT = (
     "上次工具链中断，未获得该工具的可靠结果；"
     "为避免重复副作用，本次未自动重试。"
+)
+USER_REJECTED_INTERRUPTED_TOOL_RESULT = (
+    "用户发送了新的消息，待批准工具调用已拒绝。"
+)
+USER_CANCELLED_PENDING_TOOL_RESULT = (
+    "用户发送了新的消息，本批后续工具调用已取消。"
 )
 
 
@@ -209,11 +215,36 @@ class Agent:
         state = await self.state_manager.load()
 
         if state.is_interrupted():
-            yield AgentEvent(
-                EventType.ERROR,
-                "存在待处理的前端确认，请先允许或拒绝",
-            )
-            return
+            interrupt_data = state.interrupt_data or {}
+            cancelled_ids = {
+                message.get("tool_call_id")
+                for message in state.messages
+                if message.get("role") == "tool"
+            }
+            interrupted_id = interrupt_data.get("tool_call_id", "")
+            interrupted_name = interrupt_data.get("tool_name", "")
+            if interrupted_id and interrupted_id not in cancelled_ids:
+                state.add_tool_message(
+                    content=USER_REJECTED_INTERRUPTED_TOOL_RESULT,
+                    tool_name=interrupted_name,
+                    tool_call_id=interrupted_id,
+                )
+                cancelled_ids.add(interrupted_id)
+
+            for pending in state.pending_actions:
+                pending_call = ToolCall.from_dict(pending)
+                if pending_call.id in cancelled_ids:
+                    continue
+                state.add_tool_message(
+                    content=USER_CANCELLED_PENDING_TOOL_RESULT,
+                    tool_name=pending_call.name,
+                    tool_call_id=pending_call.id,
+                )
+                cancelled_ids.add(pending_call.id)
+
+            state.clear_interrupt()
+            state.clear_pending_tool_calls()
+            await self.state_manager.save(state, checkpoint_type="completed")
 
         # 上次普通工具链若异常中止，为未完成调用补齐结果，避免自动重试副作用。
         pending_tool_calls = state.get_pending_tool_calls()
@@ -238,6 +269,7 @@ class Agent:
             state.add_user_message(content)
         else:
             state.add_user_message(message)
+        await self.state_manager.save(state, checkpoint_type="intermediate")
 
         # 3. 执行管道
         errored = False

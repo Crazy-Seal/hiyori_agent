@@ -92,12 +92,22 @@ def get_sqlite_dir() -> Path:
     return get_data_dir() / "sqlite"
 
 
+def get_agent_state_db() -> Path:
+    """返回 Agent checkpoint 与聊天记录共用的 SQLite 文件。"""
+    return get_sqlite_dir() / "agent_checkpoints.sqlite3"
+
+
 def get_chat_history_db() -> Path:
-    return get_sqlite_dir() / "chat_history.sqlite3"
+    return get_agent_state_db()
 
 
 def get_checkpoint_db() -> Path:
-    return get_sqlite_dir() / "agent_checkpoints.sqlite3"
+    return get_agent_state_db()
+
+
+def get_legacy_chat_history_db() -> Path:
+    """返回迁移前独立聊天记录数据库的位置。"""
+    return get_sqlite_dir() / "chat_history.sqlite3"
 
 
 def get_images_dir() -> Path:

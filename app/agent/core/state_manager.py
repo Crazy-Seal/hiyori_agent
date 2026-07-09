@@ -7,13 +7,17 @@
 import json
 import logging
 import os
+import shutil
 from datetime import datetime
 from typing import Literal
+from uuid import uuid4
 
 import aiosqlite
 
+from app.agent.message import is_real_human_message
 from app.agent.state import AgentState
-from app.runtime import get_checkpoint_db
+from app.agent.utils.domain.text import extract_text
+from app.runtime import get_checkpoint_db, get_legacy_chat_history_db
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +48,7 @@ class StateManager:
         return self._db
 
     async def _init_tables(self) -> None:
-        """初始化 checkpoint 表和查询索引。"""
+        """初始化 checkpoint、聊天记录和迁移元数据表。"""
         db = await self._get_db()
         await db.execute("""
             CREATE TABLE IF NOT EXISTS checkpoints (
@@ -61,7 +65,172 @@ class StateManager:
             CREATE INDEX IF NOT EXISTS idx_checkpoints_session_type_id
             ON checkpoints(session_id, checkpoint_type, id DESC)
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS chat_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                thread_id TEXT NOT NULL,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                image_description TEXT,
+                image_filenames TEXT,
+                source_message_id TEXT
+            )
+        """)
+        columns = {
+            row[1]
+            for row in await db.execute_fetchall("PRAGMA table_info(chat_history)")
+        }
+        if "source_message_id" not in columns:
+            await db.execute(
+                "ALTER TABLE chat_history ADD COLUMN source_message_id TEXT"
+            )
+        await db.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_history_source_message
+            ON chat_history(source_message_id)
+            WHERE source_message_id IS NOT NULL
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_chat_history_thread_timestamp
+            ON chat_history(thread_id, timestamp, id)
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS storage_migrations (
+                version TEXT PRIMARY KEY,
+                applied_at TIMESTAMP NOT NULL
+            )
+        """)
         await db.commit()
+        await self._migrate_legacy_chat_history()
+
+    async def _migrate_legacy_chat_history(self) -> None:
+        """将旧聊天数据库一次性复制到统一数据库。"""
+        legacy_path = get_legacy_chat_history_db()
+        if os.path.abspath(self.db_path) != os.path.abspath(str(get_checkpoint_db())):
+            return
+        if (
+            not legacy_path.exists()
+            or os.path.abspath(str(legacy_path.resolve()))
+            == os.path.abspath(self.db_path)
+        ):
+            return
+
+        db = await self._get_db()
+        version = "chat-history-unified-v1"
+        if await db.execute_fetchall(
+            "SELECT 1 FROM storage_migrations WHERE version = ?",
+            (version,),
+        ):
+            return
+
+        backup_path = legacy_path.with_suffix(f"{legacy_path.suffix}.bak")
+        if not backup_path.exists():
+            shutil.copy2(legacy_path, backup_path)
+
+        attached = False
+        try:
+            await db.execute("ATTACH DATABASE ? AS legacy_chat", (str(legacy_path),))
+            attached = True
+            await db.execute("BEGIN IMMEDIATE")
+            legacy_table = await db.execute_fetchall(
+                """
+                SELECT 1 FROM legacy_chat.sqlite_master
+                WHERE type = 'table' AND name = 'chat_history'
+                """
+            )
+            if legacy_table:
+                await db.execute(
+                    """
+                    INSERT OR IGNORE INTO chat_history (
+                        id, thread_id, timestamp, role, content,
+                        image_description, image_filenames, source_message_id
+                    )
+                    SELECT id, thread_id, timestamp, role, content,
+                           image_description, image_filenames, NULL
+                    FROM legacy_chat.chat_history
+                    ORDER BY id
+                    """
+                )
+            await db.execute(
+                """
+                INSERT INTO storage_migrations(version, applied_at)
+                VALUES (?, ?)
+                """,
+                (version, datetime.now().isoformat()),
+            )
+            await db.commit()
+        except BaseException:
+            await db.rollback()
+            raise
+        finally:
+            if attached:
+                await db.execute("DETACH DATABASE legacy_chat")
+
+    @staticmethod
+    def _ensure_message_metadata(state: AgentState) -> None:
+        for message in state.messages:
+            message.setdefault("_message_id", uuid4().hex)
+            message.setdefault("_created_at", state.updated_at.isoformat())
+
+    @staticmethod
+    def _history_rows(state: AgentState) -> list[tuple]:
+        rows: list[tuple] = []
+        for message in state.messages:
+            message_id = message["_message_id"]
+            created_at = message["_created_at"]
+            role = message.get("role")
+            content = extract_text(message.get("content"))
+            filenames = message.get("image_filenames")
+            filenames_json = (
+                json.dumps(filenames, ensure_ascii=False) if filenames else None
+            )
+
+            if role == "user" and is_real_human_message(message):
+                rows.append(
+                    (
+                        state.session_id,
+                        created_at,
+                        "Human",
+                        content,
+                        message.get("image_description"),
+                        filenames_json,
+                        f"{message_id}:content",
+                    )
+                )
+                continue
+
+            if role != "assistant":
+                continue
+            if content:
+                rows.append(
+                    (
+                        state.session_id,
+                        created_at,
+                        "AI",
+                        content,
+                        None,
+                        None,
+                        f"{message_id}:content",
+                    )
+                )
+            tool_calls = message.get("tool_calls") or []
+            if tool_calls:
+                tool_names = [
+                    (tool_call.get("function") or {}).get("name", "未知工具")
+                    for tool_call in tool_calls
+                ]
+                rows.append(
+                    (
+                        state.session_id,
+                        created_at,
+                        "AI_Tool_Calling",
+                        f"调用了工具: {', '.join(tool_names)}",
+                        None,
+                        None,
+                        f"{message_id}:tools",
+                    )
+                )
+        return rows
 
     async def load(self) -> AgentState:
         """从最新 checkpoint 恢复状态；没有记录时创建新状态。"""
@@ -95,7 +264,9 @@ class StateManager:
     ) -> int:
         """原子保存指定类型的 checkpoint，并执行对应的分层裁剪。"""
         db = await self._get_db()
+        self._ensure_message_metadata(state)
         state_json = json.dumps(state.to_checkpoint(), ensure_ascii=False, default=str)
+        history_rows = self._history_rows(state)
 
         try:
             await db.execute("BEGIN IMMEDIATE")
@@ -136,6 +307,17 @@ class StateManager:
                     (self.session_id,),
                 )
                 await self._prune_completed(db)
+
+            if history_rows:
+                await db.executemany(
+                    """
+                    INSERT OR IGNORE INTO chat_history (
+                        thread_id, timestamp, role, content,
+                        image_description, image_filenames, source_message_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    history_rows,
+                )
 
             await db.commit()
         except BaseException:

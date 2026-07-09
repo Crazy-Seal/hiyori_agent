@@ -144,7 +144,7 @@ class MemoryManager:
         *,
         enable_diary: bool = True,
     ) -> None:
-        """保存本轮对话并触发摘要/日记检查
+        """触发摘要/日记检查，核心聊天记录由 checkpoint 事务保存。
 
         在每次 agent 响应完成后调用
 
@@ -157,31 +157,7 @@ class MemoryManager:
         now = datetime.now(self.config.timezone)
         today = self._get_effective_date(now)
 
-        # 1. 保存用户消息
-        await self.chat_history_store.save_chat_message(
-            self.session_id, "Human", user_message, image_description, image_filenames
-        )
-
-        # 2. 保存所有 AI 消息
-        for ai_msg in ai_messages:
-            tool_calls = ai_msg.get("tool_calls", [])
-            content = ai_msg.get("content", "")
-
-            # 如果有文本内容，先保存为普通 AI 消息
-            if content:
-                await self.chat_history_store.save_chat_message(
-                    self.session_id, "AI", content
-                )
-
-            # 如果有工具调用，再保存为 AI_Tool_Calling 消息
-            if tool_calls:
-                tool_names = [tc.get("name", "未知工具") for tc in tool_calls]
-                tool_content = f"调用了工具: {', '.join(tool_names)}"
-                await self.chat_history_store.save_chat_message(
-                    self.session_id, "AI_Tool_Calling", tool_content
-                )
-
-        # 3. SummaryMemory 检查并生成摘要/日记
+        # 聊天历史已随 checkpoint 原子提交，此处只处理派生记忆。
         if enable_diary and self.summary_memory is not None:
             await self.summary_memory.check_and_generate(today)
 

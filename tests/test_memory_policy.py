@@ -177,7 +177,7 @@ def test_memory_manager_uses_mem0_even_with_legacy_backend_env(monkeypatch) -> N
     assert isinstance(manager.semantic_memory, FakeMem0SemanticMemory)
 
 
-def test_memory_manager_saves_chat_history_when_diary_is_disabled(monkeypatch) -> None:
+def test_memory_manager_does_not_save_core_chat_history(monkeypatch) -> None:
     saved_messages: list[tuple[str, str, str]] = []
 
     class FakeChatHistoryStore:
@@ -219,10 +219,7 @@ def test_memory_manager_saves_chat_history_when_diary_is_disabled(monkeypatch) -
 
     asyncio.run(scenario())
 
-    assert saved_messages == [
-        ("test-session", "Human", "你好"),
-        ("test-session", "AI", "你好呀"),
-    ]
+    assert saved_messages == []
 
 
 def test_disabled_memory_subsystems_are_not_accessed(monkeypatch) -> None:

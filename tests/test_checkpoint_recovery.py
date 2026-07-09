@@ -142,7 +142,7 @@ def test_completed_tool_results_survive_later_llm_failure(tmp_path: Path) -> Non
     asyncio.run(scenario())
 
 
-def test_initial_empty_response_is_error_without_checkpoint(tmp_path: Path) -> None:
+def test_initial_empty_response_keeps_user_intermediate_checkpoint(tmp_path: Path) -> None:
     async def scenario() -> None:
         agent = await make_agent(
             tmp_path / "checkpoints.sqlite3",
@@ -153,7 +153,10 @@ def test_initial_empty_response_is_error_without_checkpoint(tmp_path: Path) -> N
             events = await drain(agent.run("在吗"))
             assert events[-1].type == EventType.ERROR
             assert "finish_reason=stop" in events[-1].data
-            assert await checkpoint_types(agent.state_manager) == []
+            assert await checkpoint_types(agent.state_manager) == ["intermediate"]
+            state = await agent.state_manager.load()
+            assert state.messages[-1]["role"] == "user"
+            assert "在吗" in state.messages[-1]["content"]
         finally:
             await agent.close()
 
@@ -353,7 +356,7 @@ def test_interrupt_recovers_across_fresh_agents_and_repeated_response_fails(
     asyncio.run(scenario())
 
 
-def test_chat_rejects_unresolved_interrupt_without_mutating_messages(tmp_path: Path) -> None:
+def test_chat_resolves_unresolved_interrupt_before_new_message(tmp_path: Path) -> None:
     async def scenario() -> None:
         db_path = tmp_path / "checkpoints.sqlite3"
         resumed_calls: list[bool] = []
@@ -367,24 +370,26 @@ def test_chat_rejects_unresolved_interrupt_without_mutating_messages(tmp_path: P
         finally:
             await first_agent.close()
 
-        manager = StateManager("checkpoint-test", db_path=str(db_path))
-        try:
-            before = await manager.load()
-            before_messages = deepcopy(before.messages)
-        finally:
-            await manager.close()
-
         second_agent = await make_agent(
             db_path,
-            [[StreamChunk(content="不应调用")]],
+            [[StreamChunk(content="开始新任务")]],
             ResumableScreenshotTool(resumed_calls),
         )
         try:
             events = await drain(second_agent.run("新消息"))
-            assert events[-1].type == EventType.ERROR
-            assert "前端确认" in events[-1].data
+            assert events[-1].type == EventType.DONE
             after = await second_agent.state_manager.load()
-            assert after.messages == before_messages
+            assert after.interrupt_data is None
+            assert any(
+                message.get("role") == "tool"
+                and "已拒绝" in message.get("content", "")
+                for message in after.messages
+            )
+            assert any(
+                message.get("role") == "user"
+                and "新消息" in message.get("content", "")
+                for message in after.messages
+            )
         finally:
             await second_agent.close()
 

@@ -29,6 +29,7 @@ class AgentInput(BaseModel):
 
 # DTO
 class ChatHistoryItem(BaseModel):
+    id: str
     role: str
     content: str
     # 已转换为系统本地时区的时间
