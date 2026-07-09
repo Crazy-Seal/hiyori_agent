@@ -7,7 +7,6 @@
 import json
 import logging
 import os
-import shutil
 from datetime import datetime
 from typing import Literal
 from uuid import uuid4
@@ -17,7 +16,7 @@ import aiosqlite
 from app.agent.message import is_real_human_message
 from app.agent.state import AgentState
 from app.agent.utils.domain.text import extract_text
-from app.runtime import get_checkpoint_db, get_legacy_chat_history_db
+from app.runtime import get_checkpoint_db
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +48,7 @@ class StateManager:
         return self._db
 
     async def _init_tables(self) -> None:
-        """初始化 checkpoint、聊天记录和迁移元数据表。"""
+        """初始化 checkpoint 与聊天记录表。"""
         db = await self._get_db()
         await db.execute("""
             CREATE TABLE IF NOT EXISTS checkpoints (
@@ -102,157 +101,7 @@ class StateManager:
             CREATE INDEX IF NOT EXISTS idx_chat_history_thread_timestamp
             ON chat_history(thread_id, timestamp, id)
         """)
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS storage_migrations (
-                version TEXT PRIMARY KEY,
-                applied_at TIMESTAMP NOT NULL
-            )
-        """)
         await db.commit()
-        await self._migrate_legacy_chat_history()
-
-    async def _migrate_legacy_chat_history(self) -> None:
-        """将旧聊天数据库一次性复制到统一数据库。"""
-        legacy_path = get_legacy_chat_history_db()
-        if os.path.abspath(self.db_path) != os.path.abspath(str(get_checkpoint_db())):
-            return
-        if (
-            not legacy_path.exists()
-            or os.path.abspath(str(legacy_path.resolve()))
-            == os.path.abspath(self.db_path)
-        ):
-            return
-
-        db = await self._get_db()
-        version = "chat-history-unified-v1"
-        if await db.execute_fetchall(
-            "SELECT 1 FROM storage_migrations WHERE version = ?",
-            (version,),
-        ):
-            return
-
-        backup_path = legacy_path.with_suffix(f"{legacy_path.suffix}.bak")
-        if not backup_path.exists():
-            shutil.copy2(legacy_path, backup_path)
-
-        attached = False
-        try:
-            await db.execute("ATTACH DATABASE ? AS legacy_chat", (str(legacy_path),))
-            attached = True
-            await db.execute("BEGIN IMMEDIATE")
-            legacy_table = await db.execute_fetchall(
-                """
-                SELECT 1 FROM legacy_chat.sqlite_master
-                WHERE type = 'table' AND name = 'chat_history'
-                """
-            )
-            if legacy_table:
-                await db.execute(
-                    """
-                    INSERT OR IGNORE INTO chat_history (
-                        id, thread_id, timestamp, role, content,
-                        image_description, image_filenames, source_message_id
-                    )
-                    SELECT id, thread_id, timestamp, role, content,
-                           image_description, image_filenames, NULL
-                    FROM legacy_chat.chat_history
-                    ORDER BY id
-                    """
-                )
-            await self._merge_latest_checkpoint_tails(db)
-            await db.execute(
-                """
-                INSERT INTO storage_migrations(version, applied_at)
-                VALUES (?, ?)
-                """,
-                (version, datetime.now().isoformat()),
-            )
-            await db.commit()
-        except BaseException:
-            await db.rollback()
-            raise
-        finally:
-            if attached:
-                await db.execute("DETACH DATABASE legacy_chat")
-
-    async def _merge_latest_checkpoint_tails(
-        self,
-        db: aiosqlite.Connection,
-    ) -> None:
-        """迁移时把最新 checkpoint 中缺失的可见尾部补入聊天记录。"""
-        checkpoint_rows = await db.execute_fetchall(
-            """
-            SELECT c.id, c.state_json
-            FROM checkpoints c
-            JOIN (
-                SELECT session_id, MAX(id) AS latest_id
-                FROM checkpoints
-                GROUP BY session_id
-            ) latest ON latest.latest_id = c.id
-            """
-        )
-        for checkpoint_id, state_json in checkpoint_rows:
-            state = AgentState.from_checkpoint(json.loads(state_json))
-            self._ensure_message_metadata(state)
-            projected = self._history_rows(state)
-            existing = await db.execute_fetchall(
-                """
-                SELECT id, role, content
-                FROM chat_history
-                WHERE thread_id = ?
-                ORDER BY timestamp, id
-                """,
-                (state.session_id,),
-            )
-
-            max_overlap = min(len(existing), len(projected))
-            overlap = 0
-            for size in range(max_overlap, 0, -1):
-                existing_tail = [
-                    (row[1], row[2]) for row in existing[-size:]
-                ]
-                projected_head = [
-                    (row[2], row[3]) for row in projected[:size]
-                ]
-                if existing_tail == projected_head:
-                    overlap = size
-                    break
-
-            if overlap:
-                for existing_row, projected_row in zip(
-                    existing[-overlap:],
-                    projected[:overlap],
-                ):
-                    await db.execute(
-                        """
-                        UPDATE chat_history
-                        SET source_message_id = COALESCE(source_message_id, ?)
-                        WHERE id = ?
-                        """,
-                        (projected_row[6], existing_row[0]),
-                    )
-
-            if projected[overlap:]:
-                await db.executemany(
-                    """
-                    INSERT OR IGNORE INTO chat_history (
-                        thread_id, timestamp, role, content,
-                        image_description, image_filenames, source_message_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    projected[overlap:],
-                )
-            await db.execute(
-                "UPDATE checkpoints SET state_json = ? WHERE id = ?",
-                (
-                    json.dumps(
-                        state.to_checkpoint(),
-                        ensure_ascii=False,
-                        default=str,
-                    ),
-                    checkpoint_id,
-                ),
-            )
 
     @staticmethod
     def _ensure_message_metadata(state: AgentState) -> None:

@@ -1,5 +1,5 @@
 """
-聊天记录存储 - 访问 chat_history 表
+聊天记录查询 - 访问 chat_history 表
 """
 
 import json
@@ -16,10 +16,9 @@ from app.runtime import get_chat_history_db
 logger = logging.getLogger(__name__)
 
 class ChatHistoryStore:
-    """聊天记录存储类
+    """聊天记录查询类
 
     负责：
-    - 保存聊天记录
     - 按本地日期查询消息数量
     - 获取指定本地日期的聊天记录
     - 获取最后一个有聊天记录的本地日期
@@ -166,30 +165,6 @@ class ChatHistoryStore:
             return f"{local_dt.strftime('%Y-%m-%d')} {weekday} {local_dt.strftime('%H:%M:%S')}"
         else:
             return local_dt.strftime('%Y-%m-%d %H:%M:%S')
-
-    # ==================== 写入方法 ====================
-
-    async def save_chat_message(
-        self,
-        session_id: str,
-        role: str,
-        content: str,
-        image_description: str | None = None,
-        image_filenames: list[str] | None = None,
-    ) -> None:
-        """保存单条聊天记录"""
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        filenames_json = json.dumps(image_filenames, ensure_ascii=False) if image_filenames else None
-        try:
-            async with aiosqlite.connect(str(self.db_path)) as conn:
-                await conn.execute("PRAGMA busy_timeout=5000")
-                await conn.execute(
-                    f"INSERT INTO {self.TABLE_NAME} (thread_id, role, content, image_description, image_filenames) VALUES (?, ?, ?, ?, ?)",
-                    (session_id, role, content, image_description, filenames_json),
-                )
-                await conn.commit()
-        except Exception:
-            logger.exception("[ChatHistoryStore][session=%s] 保存聊天记录失败", session_id)
 
     # ==================== 查询方法 ====================
 

@@ -178,21 +178,9 @@ def test_memory_manager_uses_mem0_even_with_legacy_backend_env(monkeypatch) -> N
 
 
 def test_memory_manager_does_not_save_core_chat_history(monkeypatch) -> None:
-    saved_messages: list[tuple[str, str, str]] = []
-
     class FakeChatHistoryStore:
         def __init__(self, *args, **kwargs):
             pass
-
-        async def save_chat_message(
-            self,
-            session_id,
-            role,
-            content,
-            image_description=None,
-            image_filenames=None,
-        ):
-            saved_messages.append((session_id, role, content))
 
     class DisabledSummaryMemory:
         def __init__(self, *args, **kwargs):
@@ -218,9 +206,6 @@ def test_memory_manager_does_not_save_core_chat_history(monkeypatch) -> None:
         )
 
     asyncio.run(scenario())
-
-    assert saved_messages == []
-
 
 def test_disabled_memory_subsystems_are_not_accessed(monkeypatch) -> None:
     class FakeChatHistoryStore:
