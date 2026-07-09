@@ -391,6 +391,53 @@ def test_chat_rejects_unresolved_interrupt_without_mutating_messages(tmp_path: P
     asyncio.run(scenario())
 
 
+def test_new_message_cancels_interrupted_tool_batch_before_starting_turn(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        db_path = tmp_path / "checkpoints.sqlite3"
+        resumed_calls: list[bool] = []
+        first_agent = await make_agent(
+            db_path,
+            [[
+                tool_call("shot-1", name="screenshot"),
+                tool_call("step-2", label="B"),
+            ]],
+            ResumableScreenshotTool(resumed_calls),
+        )
+        try:
+            await drain(first_agent.run("请求截屏"))
+        finally:
+            await first_agent.close()
+
+        second_agent = await make_agent(
+            db_path,
+            [[StreamChunk(content="已切换到新任务")]],
+            ResumableScreenshotTool(resumed_calls),
+        )
+        try:
+            events = await drain(second_agent.run("改做别的事情"))
+            assert any(event.type == EventType.TEXT_CHUNK for event in events)
+
+            state = await second_agent.state_manager.load()
+            tool_results = {
+                message.get("tool_call_id"): message.get("content")
+                for message in state.messages
+                if message.get("role") == "tool"
+            }
+            assert "已拒绝" in tool_results["shot-1"]
+            assert "已取消" in tool_results["step-2"]
+            assert state.interrupt_data is None
+            assert state.pending_actions == []
+            assert state.messages[-2]["role"] == "user"
+            assert "改做别的事情" in state.messages[-2]["content"]
+            assert resumed_calls == []
+        finally:
+            await second_agent.close()
+
+    asyncio.run(scenario())
+
+
 def test_successful_turn_replaces_intermediate_with_completed(tmp_path: Path) -> None:
     async def scenario() -> None:
         agent = await make_agent(

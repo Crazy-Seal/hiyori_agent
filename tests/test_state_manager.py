@@ -7,6 +7,7 @@ import pytest
 
 from app.agent.core.state_manager import StateManager
 from app.agent.state import AgentState
+from app.runtime import get_agent_state_db, get_chat_history_db, get_checkpoint_db
 
 
 async def checkpoint_rows(manager: StateManager) -> list[tuple[int, str, str]]:
@@ -89,6 +90,72 @@ def test_completed_checkpoint_removes_intermediate_and_keeps_latest_thirty(
             assert len(rows) == StateManager.MAX_COMPLETED_CHECKPOINTS_PER_SESSION + 1
             assert [row[1] for row in rows].count("intermediate") == 1
             assert (await manager.load()).messages[-1]["content"] == "最新中间态"
+        finally:
+            await manager.close()
+
+    asyncio.run(scenario())
+
+
+def test_runtime_uses_one_database_for_checkpoint_and_chat_history() -> None:
+    assert get_checkpoint_db() == get_agent_state_db()
+    assert get_chat_history_db() == get_agent_state_db()
+
+
+def test_checkpoint_and_visible_history_are_saved_atomically(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        manager = StateManager("test-session", db_path=str(tmp_path / "agent.sqlite3"))
+        try:
+            state = AgentState.create_new("test-session")
+            state.add_user_message("你好")
+            state.add_assistant_message("你好呀")
+            await manager.save(state, checkpoint_type="completed")
+
+            db = await manager._get_db()
+            rows = await db.execute_fetchall(
+                """
+                SELECT role, content, source_message_id
+                FROM chat_history
+                WHERE thread_id = ?
+                ORDER BY id
+                """,
+                ("test-session",),
+            )
+            assert [(row[0], row[1]) for row in rows] == [
+                ("Human", "你好"),
+                ("AI", "你好呀"),
+            ]
+            assert all(row[2] for row in rows)
+
+            await db.execute(
+                """
+                CREATE TRIGGER reject_history_insert
+                BEFORE INSERT ON chat_history
+                BEGIN
+                    SELECT RAISE(ABORT, '模拟聊天记录写入失败');
+                END
+                """
+            )
+            await db.commit()
+
+            failed = AgentState.from_checkpoint(state.to_checkpoint())
+            failed.add_user_message("不应提交")
+            with pytest.raises(aiosqlite.IntegrityError, match="模拟聊天记录写入失败"):
+                await manager.save(failed, checkpoint_type="intermediate")
+
+            checkpoint_count = (
+                await db.execute_fetchall(
+                    "SELECT COUNT(*) FROM checkpoints WHERE session_id = ?",
+                    ("test-session",),
+                )
+            )[0][0]
+            history_count = (
+                await db.execute_fetchall(
+                    "SELECT COUNT(*) FROM chat_history WHERE thread_id = ?",
+                    ("test-session",),
+                )
+            )[0][0]
+            assert checkpoint_count == 1
+            assert history_count == 2
         finally:
             await manager.close()
 
