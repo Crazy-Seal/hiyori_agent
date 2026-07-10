@@ -538,6 +538,65 @@ def test_agent_service_v2_error_raises_and_closes():
     assert stub.closed is True
 
 
+def test_pending_interrupt_reads_state_manager_without_initializing_agent(monkeypatch):
+    from app.services import agent_service as agent_service_module
+    from app.services.agent_service import AgentService
+
+    state = AgentState.create_new("pending-session")
+    state.set_interrupt(
+        {
+            "type": "screenshot_request",
+            "request_id": "request-1",
+            "message": "允许截屏？",
+            "data": {"source": "checkpoint"},
+            "tool_name": "screenshot",
+        }
+    )
+    closed: list[str] = []
+
+    class FakeStateManager:
+        def __init__(self, session_id: str):
+            assert session_id == "pending-session"
+
+        async def load(self):
+            return state
+
+        async def close(self):
+            closed.append("closed")
+
+    monkeypatch.setattr(
+        agent_service_module,
+        "StateManager",
+        FakeStateManager,
+        raising=False,
+    )
+
+    service = AgentService(
+        chat_history_dao=None,
+        chat_settings_loader=lambda _session_id: (_ for _ in ()).throw(
+            AssertionError("pending 查询不应读取聊天设置")
+        ),
+        agent_factory=lambda _settings: (_ for _ in ()).throw(
+            AssertionError("pending 查询不应构造 Agent")
+        ),
+    )
+
+    result = asyncio.run(service.get_pending_interrupt("pending-session"))
+
+    assert result == {
+        "pending": True,
+        "interrupt": {
+            "value": {
+                "type": "screenshot_request",
+                "request_id": "request-1",
+                "message": "允许截屏？",
+                "data": {"source": "checkpoint"},
+            }
+        },
+    }
+    assert closed == ["closed"]
+
+
 # ==================== Skill 与 MCP ====================
 
 def test_skill_loads_tools_and_prompt_fragment():
