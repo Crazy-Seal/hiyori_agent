@@ -197,7 +197,7 @@ class ContextWindowPlugin(BasePlugin):
 
     @property
     def hooks(self) -> list[PluginHook]:
-        return [PluginHook.BEFORE_LLM, PluginHook.BEFORE_RESPONSE]
+        return [PluginHook.BEFORE_LLM, PluginHook.BEFORE_RESPONSE_COMMIT]
 
     async def execute(self, context: HookContext) -> HookContext:
         state = context.agent_state
@@ -209,7 +209,7 @@ class ContextWindowPlugin(BasePlugin):
             )
             msgs = normalize_messages_for_model(msgs)
             state.extra["llm_messages"] = msgs
-        elif context.hook == PluginHook.BEFORE_RESPONSE:
+        elif context.hook == PluginHook.BEFORE_RESPONSE_COMMIT:
             msgs = _compress_window_messages(state.messages, self.config)
             msgs = _slice_recent_messages_by_human(
                 msgs,

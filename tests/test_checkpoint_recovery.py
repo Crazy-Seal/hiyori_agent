@@ -130,6 +130,7 @@ class CommitOrderPlugin(BasePlugin):
         if context.hook == PluginHook.BEFORE_RESPONSE_COMMIT:
             self.order.append("before_commit")
             context.data["prepared"] = True
+            context.agent_state.summary_counter += 1
         elif context.hook == PluginHook.AFTER_RESPONSE_COMMIT:
             assert context.data == {"prepared": True}
             self.order.append("after_commit")

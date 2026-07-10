@@ -54,20 +54,20 @@ class MemoryManager:
             self.chat_settings = chat_settings_dao.get_chat_settings(session_id)
         self.memory_options = self._memory_options()
 
-        # 初始化存储层
-        self.chat_history_store = ChatHistoryStore(
-            timezone=self.config.timezone,
-            day_boundary_hour=self.config.day_boundary_hour,
-        )
-
-        # 按开关初始化三种长期记忆；聊天记录存储始终启用。
-        self.summary_memory = (
-            SummaryMemory(
-                session_id, self.config, self.chat_settings, self.chat_history_store
+        # SummaryMemory 启用时才创建聊天历史查询适配器。
+        if self.memory_options.get("enable_diary", True):
+            chat_history_store = ChatHistoryStore(
+                timezone=self.config.timezone,
+                day_boundary_hour=self.config.day_boundary_hour,
             )
-            if self.memory_options.get("enable_diary", True)
-            else None
-        )
+            self.summary_memory = SummaryMemory(
+                session_id,
+                self.config,
+                self.chat_settings,
+                chat_history_store,
+            )
+        else:
+            self.summary_memory = None
         self.episodic_memory = (
             EpisodicMemory(session_id, self.config, self.chat_settings)
             if self.memory_options.get("enable_episodic", True)
@@ -135,30 +135,12 @@ class MemoryManager:
 
         return {"episodic": episodic_count, "semantic": semantic_count}
 
-    async def try_summary(
-        self,
-        user_message: str,
-        ai_messages: list[dict[str, Any]],
-        image_description: str | None = None,
-        image_filenames: list[str] | None = None,
-        *,
-        enable_diary: bool = True,
-    ) -> None:
-        """触发摘要/日记检查，核心聊天记录由 checkpoint 事务保存。
-
-        在每次 agent 响应完成后调用
-
-        Args:
-            user_message: 用户消息
-            ai_messages: AI 消息列表，每条包含 content 和 tool_calls
-            image_description: 图片描述（可选）
-            image_filenames: 图片文件名列表（可选）
-        """
+    async def check_summary(self) -> None:
+        """基于已提交的聊天历史检查是否需要生成摘要或日记。"""
         now = datetime.now(self.config.timezone)
         today = self._get_effective_date(now)
 
-        # 聊天历史已随 checkpoint 原子提交，此处只处理派生记忆。
-        if enable_diary and self.summary_memory is not None:
+        if self.summary_memory is not None:
             await self.summary_memory.check_and_generate(today)
 
     async def get_context(

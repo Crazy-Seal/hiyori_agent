@@ -107,7 +107,7 @@ def test_memory_plugin_annotates_image_message_after_consuming_description(monke
         return memory_plugin_module.ImageTaskResult("一只猫坐在桌子上。", ["cat.png"])
 
     class FakeMemoryManager:
-        async def try_summary(self, *args, **kwargs):
+        async def check_summary(self):
             return None
 
         async def add(self, *args, **kwargs):
@@ -143,7 +143,11 @@ def test_memory_plugin_annotates_image_message_after_consuming_description(monke
         state.add_assistant_message("看到了。")
 
         await plugin.execute(HookContext.create(PluginHook.ON_INVOKE, state))
-        await plugin.execute(HookContext.create(PluginHook.BEFORE_RESPONSE, state))
+        await plugin.execute(HookContext.create(
+            PluginHook.BEFORE_RESPONSE_COMMIT,
+            state,
+            data={},
+        ))
         return state
 
     state = asyncio.run(scenario())

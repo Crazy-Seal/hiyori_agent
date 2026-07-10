@@ -145,7 +145,8 @@ class PluginHook(str, Enum):
     AFTER_LLM = "after_llm"             # LLM 调用后
     BEFORE_TOOL = "before_tool"         # 工具执行前
     AFTER_TOOL = "after_tool"           # 工具执行后
-    BEFORE_RESPONSE = "before_response" # 响应发送前
+    BEFORE_RESPONSE_COMMIT = "before_response_commit"  # 最终响应提交前
+    AFTER_RESPONSE_COMMIT = "after_response_commit"    # 最终响应提交后
     ON_INTERRUPT = "on_interrupt"       # 中断发生时
     ON_ERROR = "on_error"               # 错误发生时
 

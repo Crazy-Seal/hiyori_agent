@@ -10,7 +10,7 @@ from typing import Any, AsyncIterator
 
 from app.agent.state import AgentState
 from app.agent.message import ContentPart, ToolCall
-from app.agent.context import BaseTool, BasePlugin
+from app.agent.context import BaseTool, BasePlugin, PluginHook
 from app.agent.core.tool_manager import ToolManager
 from app.agent.core.plugin_manager import PluginManager
 from app.agent.core.state_manager import StateManager
@@ -273,9 +273,11 @@ class Agent:
 
         # 3. 执行管道
         errored = False
+        commit_context: dict = {}
         async for event in self.pipeline.execute(
             state,
             checkpoint=self.state_manager.save,
+            commit_context=commit_context,
         ):
             if event.type == EventType.ERROR:
                 # 出错时不写最终 checkpoint，已经提交的工具进度继续保留。
@@ -288,6 +290,9 @@ class Agent:
                 yield event
                 return
 
+            if event.type == EventType.DONE:
+                continue
+
             yield event
 
         if errored:
@@ -299,6 +304,12 @@ class Agent:
 
         # 4. 保存最终状态
         await self.state_manager.save(state, checkpoint_type="completed")
+        await self.plugin_manager.run_hooks(
+            PluginHook.AFTER_RESPONSE_COMMIT,
+            state,
+            data=commit_context,
+        )
+        yield AgentEvent(EventType.DONE, None)
 
     async def resume(
         self,
@@ -325,10 +336,12 @@ class Agent:
 
         # 3. 恢复执行
         errored = False
+        commit_context: dict = {}
         async for event in self.pipeline.resume_tools(
             state,
             resume_data,
             checkpoint=self.state_manager.save,
+            commit_context=commit_context,
         ):
             if event.type == EventType.ERROR:
                 errored = True
@@ -341,6 +354,9 @@ class Agent:
                 yield event
                 return
 
+            if event.type == EventType.DONE:
+                continue
+
             yield event
 
         if errored:
@@ -352,6 +368,12 @@ class Agent:
 
         # 4. 保存最终状态
         await self.state_manager.save(state, checkpoint_type="completed")
+        await self.plugin_manager.run_hooks(
+            PluginHook.AFTER_RESPONSE_COMMIT,
+            state,
+            data=commit_context,
+        )
+        yield AgentEvent(EventType.DONE, None)
 
     # ==================== 运行时操作 ====================
 

@@ -89,7 +89,10 @@ def test_context_window_hooks_apply_model_and_checkpoint_limits() -> None:
             if message.get("role") == "user"
         )
 
-        await plugin.execute(HookContext.create(PluginHook.BEFORE_RESPONSE, state))
+        await plugin.execute(HookContext.create(
+            PluginHook.BEFORE_RESPONSE_COMMIT,
+            state,
+        ))
         checkpoint_human_count = sum(
             1 for message in state.messages if message.get("role") == "user"
         )

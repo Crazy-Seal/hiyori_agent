@@ -3,7 +3,6 @@
 """
 
 import json
-import logging
 from datetime import date, datetime, time, timezone, timedelta
 from pathlib import Path
 from typing import Any
@@ -13,7 +12,6 @@ import aiosqlite
 
 from app.runtime import get_chat_history_db
 
-logger = logging.getLogger(__name__)
 
 class ChatHistoryStore:
     """聊天记录查询类
@@ -40,52 +38,6 @@ class ChatHistoryStore:
         self.db_path = Path(db_path) if db_path else get_chat_history_db()
         self.timezone = timezone or datetime.now().astimezone().tzinfo
         self.day_boundary_hour = day_boundary_hour
-        self._ensure_table()
-
-    def _ensure_table(self):
-        """确保表存在"""
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        import sqlite3
-        with sqlite3.connect(str(self.db_path)) as conn:
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA busy_timeout=5000")
-            conn.execute(f"""
-                CREATE TABLE IF NOT EXISTS {self.TABLE_NAME} (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    thread_id TEXT NOT NULL,
-                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    role TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    image_description TEXT,
-                    image_filenames TEXT,
-                    source_message_id TEXT
-                )
-            """)
-            conn.execute(f"""
-                CREATE INDEX IF NOT EXISTS idx_thread_time
-                ON {self.TABLE_NAME}(thread_id, timestamp)
-            """)
-            try:
-                conn.execute(f"ALTER TABLE {self.TABLE_NAME} ADD COLUMN image_filenames TEXT")
-            except sqlite3.OperationalError:
-                pass
-            try:
-                conn.execute(f"ALTER TABLE {self.TABLE_NAME} ADD COLUMN source_message_id TEXT")
-            except sqlite3.OperationalError:
-                pass
-            index_row = conn.execute(
-                """
-                SELECT sql FROM sqlite_master
-                WHERE type = 'index' AND name = 'idx_chat_history_source_message'
-                """
-            ).fetchone()
-            if index_row and " WHERE " in (index_row[0] or "").upper():
-                conn.execute("DROP INDEX idx_chat_history_source_message")
-            conn.execute(f"""
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_history_source_message
-                ON {self.TABLE_NAME}(source_message_id)
-            """)
-            conn.commit()
 
     def _local_date_to_utc_range(self, local_date: date) -> tuple[datetime, datetime]:
         """将本地日期转换为 UTC 时间范围"""
@@ -262,50 +214,6 @@ class ChatHistoryStore:
                 }
                 for row in rows
             ]
-
-    async def list_chat_history(
-        self,
-        session_id: str,
-        start: int = 0,
-        limit: int = 200,
-    ) -> list[dict[str, Any]]:
-        """查询会话历史"""
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            async with aiosqlite.connect(str(self.db_path)) as conn:
-                await conn.execute("PRAGMA busy_timeout=5000")
-                cursor = await conn.execute(
-                    f"""
-                    SELECT role, content, timestamp, image_filenames
-                    FROM {self.TABLE_NAME}
-                    WHERE thread_id = ?
-                    ORDER BY timestamp ASC, id ASC
-                    LIMIT ? OFFSET ?
-                    """,
-                    (session_id, limit, start),
-                )
-                rows = await cursor.fetchall()
-                return [
-                    {
-                        "role": row[0],
-                        "content": row[1],
-                        "timestamp": self._format_local_time(row[2]),
-                        "images": json.loads(row[3]) if row[3] else None,
-                    }
-                    for row in rows
-                ]
-        except Exception:
-            logger.exception("[ChatHistoryStore][session=%s] 查询聊天记录失败", session_id)
-            return []
-
-    async def has_chat_on_date(
-        self,
-        session_id: str,
-        effective_date: date,
-    ) -> bool:
-        """检查指定本地日期是否有聊天记录"""
-        count = await self.get_message_count_by_date(session_id, effective_date)
-        return count > 0
 
     async def get_messages_before_date(
         self,

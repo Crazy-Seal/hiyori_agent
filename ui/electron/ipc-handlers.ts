@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { BACKEND_BASE_URL, CHAT_REQUEST_TIMEOUT_MS, FRONTEND_SETTINGS_PATH } from "./config.js";
+import { consumeSseStream } from "./sse-stream.js";
 import type {
   ChatSettingsData,
   ModelTransformPayload,
@@ -14,10 +15,8 @@ import type {
   ModelChangedPayload,
   ModelTransformChangedPayload,
   ChatChunkPayload,
-  ScreenshotInterruptPayload,
   ScreenActionRequest,
   ScreenActionResult,
-  ToolCallPayload,
   FrontendSettings,
   ChatResult,
 } from "./types.js";
@@ -112,129 +111,24 @@ const streamBackendResponse = async (
   if (!res.body) {
     throw new Error("API error: missing response stream");
   }
-
-  const decoder = new TextDecoder("utf-8");
-  const reader = res.body.getReader();
-  let streamBuffer = "";
-  let aggregatedResponse = "";
-
-  type ProcessResult = {
-    done: boolean;
-    interrupted?: boolean;
-    interruptData?: ScreenshotInterruptPayload;
-  };
-
-  const processEventBlock = (block: string): ProcessResult => {
-    const lines = block
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-
-    let eventName = "message";
-    const dataLines: string[] = [];
-
-    for (const line of lines) {
-      if (line.startsWith("event:")) {
-        eventName = line.slice(6).trim();
-      } else if (line.startsWith("data:")) {
-        dataLines.push(line.slice(5).trim());
-      }
-    }
-
-    if (dataLines.length === 0) {
-      return { done: false };
-    }
-
-    const dataText = dataLines.join("\n");
-    if (dataText === "[DONE]") {
-      return { done: true };
-    }
-
-    const parsed = JSON.parse(dataText) as { response?: string; detail?: string };
-
-    if (eventName === "interrupt") {
-      const interruptData = parsed as unknown as ScreenshotInterruptPayload;
-      event.sender.send("desktop-pet:chat-interrupt", interruptData);
-      return { done: true, interrupted: true, interruptData };
-    }
-
-    if (eventName === "tool_call") {
-      const toolCallData = parsed as unknown as ToolCallPayload;
-      if (requestId) {
-        event.sender.send("desktop-pet:chat-tool-call", {
-          requestId,
-          toolName: toolCallData.tool_name,
-        });
-      }
-      return { done: false };
-    }
-
-    if (eventName === "error") {
-      throw new Error(parsed.detail || errorFallback);
-    }
-
-    if (typeof parsed.response === "string" && parsed.response.length > 0) {
-      aggregatedResponse += parsed.response;
-      if (requestId) {
-        const chunkPayload: ChatChunkPayload = {
-          requestId,
-          chunk: parsed.response,
-          aggregated: aggregatedResponse,
-        };
+  return await consumeSseStream(
+    res.body,
+    {
+      onChunk: (chunk, aggregated) => {
+        if (!requestId) return;
+        const chunkPayload: ChatChunkPayload = { requestId, chunk, aggregated };
         event.sender.send("desktop-pet:chat-chunk", chunkPayload);
-      }
-    }
-
-    return { done: false };
-  };
-
-  let streamEnded = false;
-  let interrupted = false;
-  let interruptData: ScreenshotInterruptPayload | undefined;
-
-  while (!streamEnded) {
-    const readResult = await reader.read();
-    if (readResult.done) {
-      streamEnded = true;
-      break;
-    }
-
-    streamBuffer += decoder.decode(readResult.value, { stream: true });
-    const normalized = streamBuffer.replaceAll("\r\n", "\n");
-    const eventBlocks = normalized.split("\n\n");
-    streamBuffer = eventBlocks.pop() ?? "";
-
-    for (const block of eventBlocks) {
-      const state = processEventBlock(block);
-      if (state.done) {
-        streamEnded = true;
-        if (state.interrupted) {
-          interrupted = true;
-          interruptData = state.interruptData;
-        }
-        break;
-      }
-    }
-  }
-
-  const remaining = streamBuffer.trim();
-  if (remaining.length > 0 && !interrupted) {
-    processEventBlock(remaining);
-  }
-
-  if (interrupted && interruptData) {
-    return {
-      interrupted: true,
-      interruptData,
-      response: aggregatedResponse,
-      model: "",
-    };
-  }
-
-  return {
-    response: aggregatedResponse,
-    model: "",
-  };
+      },
+      onToolCall: (toolName) => {
+        if (!requestId) return;
+        event.sender.send("desktop-pet:chat-tool-call", { requestId, toolName });
+      },
+      onInterrupt: (interrupt) => {
+        event.sender.send("desktop-pet:chat-interrupt", interrupt);
+      },
+    },
+    errorFallback,
+  );
 };
 
 const performScreenAction = async (payload: ScreenActionRequest): Promise<ScreenActionResult> => {
@@ -680,136 +574,12 @@ export const registerIpcHandlers = (): void => {
           throw new Error(text || `请求失败: ${res.status}`);
         }
 
-        if (!res.body) {
-          throw new Error("Chat API error: missing response stream");
-        }
-
-        const decoder = new TextDecoder("utf-8");
-        const reader = res.body.getReader();
-        let streamBuffer = "";
-        let aggregatedResponse = "";
-
-        type ProcessResult = {
-          done: boolean;
-          interrupted?: boolean;
-          interruptData?: ScreenshotInterruptPayload;
-        };
-
-        const processEventBlock = (block: string): ProcessResult => {
-          const lines = block
-            .split("\n")
-            .map((line) => line.trim())
-            .filter((line) => line.length > 0);
-
-          let eventName = "message";
-          const dataLines: string[] = [];
-
-          for (const line of lines) {
-            if (line.startsWith("event:")) {
-              eventName = line.slice(6).trim();
-            } else if (line.startsWith("data:")) {
-              dataLines.push(line.slice(5).trim());
-            }
-          }
-
-          if (dataLines.length === 0) {
-            return { done: false };
-          }
-
-          const dataText = dataLines.join("\n");
-          if (dataText === "[DONE]") {
-            return { done: true };
-          }
-
-          const parsed = JSON.parse(dataText) as { response?: string; detail?: string };
-
-          // 处理 interrupt 事件
-          if (eventName === "interrupt") {
-            const interruptData = parsed as unknown as ScreenshotInterruptPayload;
-            // 发送 IPC 事件到渲染进程
-            event.sender.send("desktop-pet:chat-interrupt", interruptData);
-            return { done: true, interrupted: true, interruptData };
-          }
-
-          // 处理 tool_call 事件
-          if (eventName === "tool_call") {
-            const toolCallData = parsed as unknown as ToolCallPayload;
-            if (requestId) {
-              event.sender.send("desktop-pet:chat-tool-call", {
-                requestId,
-                toolName: toolCallData.tool_name,
-              });
-            }
-            return { done: false };
-          }
-
-          if (eventName === "error") {
-            throw new Error(parsed.detail || "聊天流返回错误事件");
-          }
-
-          if (typeof parsed.response === "string" && parsed.response.length > 0) {
-            aggregatedResponse += parsed.response;
-            if (requestId) {
-              const chunkPayload: ChatChunkPayload = {
-                requestId,
-                chunk: parsed.response,
-                aggregated: aggregatedResponse,
-              };
-              event.sender.send("desktop-pet:chat-chunk", chunkPayload);
-            }
-          }
-
-          return { done: false };
-        };
-
-        let streamEnded = false;
-        let interrupted = false;
-        let interruptData: ScreenshotInterruptPayload | undefined;
-
-        while (!streamEnded) {
-          const readResult = await reader.read();
-          if (readResult.done) {
-            streamEnded = true;
-            break;
-          }
-
-          streamBuffer += decoder.decode(readResult.value, { stream: true });
-          const normalized = streamBuffer.replaceAll("\r\n", "\n");
-          const eventBlocks = normalized.split("\n\n");
-          streamBuffer = eventBlocks.pop() ?? "";
-
-          for (const block of eventBlocks) {
-            const state = processEventBlock(block);
-            if (state.done) {
-              streamEnded = true;
-              if (state.interrupted) {
-                interrupted = true;
-                interruptData = state.interruptData;
-              }
-              break;
-            }
-          }
-        }
-
-        const remaining = streamBuffer.trim();
-        if (remaining.length > 0 && !interrupted) {
-          processEventBlock(remaining);
-        }
-
-        // 如果被中断，返回中断信息
-        if (interrupted && interruptData) {
-          return {
-            interrupted: true,
-            interruptData,
-            response: aggregatedResponse,
-            model: "",
-          };
-        }
-
-        return {
-          response: aggregatedResponse,
-          model: "",
-        };
+        return await streamBackendResponse(
+          event,
+          res,
+          requestId,
+          "聊天流返回错误事件",
+        );
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         if (error instanceof Error && error.name === "AbortError") {
@@ -877,139 +647,12 @@ export const registerIpcHandlers = (): void => {
           throw new Error(text || `请求失败: ${res.status}`);
         }
 
-        if (!res.body) {
-          throw new Error("Screenshot respond API error: missing response stream");
-        }
-
-        const decoder = new TextDecoder("utf-8");
-        const reader = res.body.getReader();
-        let streamBuffer = "";
-        let aggregatedResponse = "";
-        let eventCount = 0;
-
-        type ProcessResult = {
-          done: boolean;
-          interrupted?: boolean;
-          interruptData?: ScreenshotInterruptPayload;
-        };
-
-        const processEventBlock = (block: string): ProcessResult => {
-          eventCount++;
-          const lines = block
-            .split("\n")
-            .map((line) => line.trim())
-            .filter((line) => line.length > 0);
-
-          let eventName = "message";
-          const dataLines: string[] = [];
-
-          for (const line of lines) {
-            if (line.startsWith("event:")) {
-              eventName = line.slice(6).trim();
-            } else if (line.startsWith("data:")) {
-              dataLines.push(line.slice(5).trim());
-            }
-          }
-
-          if (dataLines.length === 0) {
-            return { done: false };
-          }
-
-          const dataText = dataLines.join("\n");
-
-          if (dataText === "[DONE]") {
-            return { done: true };
-          }
-
-          const parsed = JSON.parse(dataText) as { response?: string; detail?: string };
-
-          // 处理 interrupt 事件（连续截屏）
-          if (eventName === "interrupt") {
-            const interruptData = parsed as unknown as ScreenshotInterruptPayload;
-            event.sender.send("desktop-pet:chat-interrupt", interruptData);
-            return { done: true, interrupted: true, interruptData };
-          }
-
-          // 处理 tool_call 事件
-          if (eventName === "tool_call") {
-            const toolCallData = parsed as unknown as ToolCallPayload;
-            if (requestId) {
-              event.sender.send("desktop-pet:chat-tool-call", {
-                requestId,
-                toolName: toolCallData.tool_name,
-              });
-            }
-            return { done: false };
-          }
-
-          if (eventName === "error") {
-            throw new Error(parsed.detail || "截屏响应流返回错误事件");
-          }
-
-          if (typeof parsed.response === "string" && parsed.response.length > 0) {
-            aggregatedResponse += parsed.response;
-            if (requestId) {
-              const chunkPayload: ChatChunkPayload = {
-                requestId,
-                chunk: parsed.response,
-                aggregated: aggregatedResponse,
-              };
-              event.sender.send("desktop-pet:chat-chunk", chunkPayload);
-            }
-          }
-
-          return { done: false };
-        };
-
-        let streamEnded = false;
-        let interrupted = false;
-        let interruptData: ScreenshotInterruptPayload | undefined;
-
-        while (!streamEnded) {
-          const readResult = await reader.read();
-          if (readResult.done) {
-            streamEnded = true;
-            break;
-          }
-
-          streamBuffer += decoder.decode(readResult.value, { stream: true });
-          const normalized = streamBuffer.replaceAll("\r\n", "\n");
-          const eventBlocks = normalized.split("\n\n");
-          streamBuffer = eventBlocks.pop() ?? "";
-
-          for (const block of eventBlocks) {
-            const state = processEventBlock(block);
-            if (state.done) {
-              streamEnded = true;
-              if (state.interrupted) {
-                interrupted = true;
-                interruptData = state.interruptData;
-              }
-              break;
-            }
-          }
-        }
-
-        const remaining = streamBuffer.trim();
-        if (remaining.length > 0 && !interrupted) {
-          processEventBlock(remaining);
-        }
-
-
-        // 如果被中断，返回中断信息
-        if (interrupted && interruptData) {
-          return {
-            interrupted: true,
-            interruptData,
-            response: aggregatedResponse,
-            model: "",
-          };
-        }
-
-        return {
-          response: aggregatedResponse,
-          model: "",
-        };
+        return await streamBackendResponse(
+          event,
+          res,
+          requestId,
+          "截屏响应流返回错误事件",
+        );
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         if (error instanceof Error && error.name === "AbortError") {

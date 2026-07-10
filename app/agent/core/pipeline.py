@@ -57,6 +57,7 @@ class ExecutionPipeline:
         self,
         state: AgentState,
         checkpoint: CheckpointCallback | None = None,
+        commit_context: dict | None = None,
     ) -> AsyncIterator[AgentEvent]:
         """执行主循环（一轮对话的起点）"""
         # ON_INVOKE 钩子 - 每轮仅在此触发一次
@@ -64,7 +65,7 @@ class ExecutionPipeline:
             PluginHook.ON_INVOKE, state
         )
 
-        async for event in self._run_loop(state, checkpoint):
+        async for event in self._run_loop(state, checkpoint, commit_context):
             yield event
 
     async def resume_tools(
@@ -72,6 +73,7 @@ class ExecutionPipeline:
         state: AgentState,
         resume_data: dict,
         checkpoint: CheckpointCallback | None = None,
+        commit_context: dict | None = None,
     ) -> AsyncIterator[AgentEvent]:
         """从中断恢复：先跑完被中断的工具与剩余待执行工具，再回到 LLM 循环。
 
@@ -130,7 +132,7 @@ class ExecutionPipeline:
             await self._checkpoint(state, checkpoint)
 
         # 3. 回到 LLM 循环（不重跑 ON_INVOKE）
-        async for event in self._run_loop(state, checkpoint):
+        async for event in self._run_loop(state, checkpoint, commit_context):
             yield event
 
     # ==================== 核心循环 ====================
@@ -139,6 +141,7 @@ class ExecutionPipeline:
         self,
         state: AgentState,
         checkpoint: CheckpointCallback | None = None,
+        commit_context: dict | None = None,
     ) -> AsyncIterator[AgentEvent]:
         """LLM ↔ 工具循环主体（不含 ON_INVOKE）"""
         while True:
@@ -216,9 +219,11 @@ class ExecutionPipeline:
             # 7. 清空待处理工具，继续循环
             state.clear_pending_tool_calls()
 
-        # 8. BEFORE_RESPONSE 钩子（落记忆/裁剪等收尾）
+        # 8. 最终响应提交前准备：标注图片、准备记忆快照并裁剪 checkpoint。
         state = await self.agent.plugin_manager.run_hooks(
-            PluginHook.BEFORE_RESPONSE, state
+            PluginHook.BEFORE_RESPONSE_COMMIT,
+            state,
+            data=commit_context if commit_context is not None else {},
         )
 
         yield AgentEvent(EventType.DONE, None)

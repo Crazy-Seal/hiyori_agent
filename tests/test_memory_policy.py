@@ -44,7 +44,7 @@ def test_memory_persistence_runs_every_ten_human_messages(monkeypatch) -> None:
         return None
 
     class FakeMemoryManager:
-        async def try_summary(self, *args, **kwargs):
+        async def check_summary(self):
             return None
 
         async def add(self, *args, **kwargs):
@@ -61,12 +61,23 @@ def test_memory_persistence_runs_every_ten_human_messages(monkeypatch) -> None:
             state.add_user_message(f"human-{index}")
             state.add_assistant_message(f"assistant-{index}")
 
-        await plugin.execute(HookContext.create(PluginHook.BEFORE_RESPONSE, state))
+        commit_context: dict = {}
+        await plugin.execute(HookContext.create(
+            PluginHook.BEFORE_RESPONSE_COMMIT,
+            state,
+            data=commit_context,
+        ))
+        assert scheduled_tasks == []
+        await plugin.execute(HookContext.create(
+            PluginHook.AFTER_RESPONSE_COMMIT,
+            state,
+            data=commit_context,
+        ))
         return state
 
     state = asyncio.run(scenario())
 
-    assert "memory.persist" in scheduled_tasks
+    assert scheduled_tasks == ["memory.check_summary", "memory.persist"]
     assert state.summary_counter == 0
 
 
@@ -79,7 +90,7 @@ def test_memory_plugin_respects_summary_interval_and_disabled_types(monkeypatch)
         return None
 
     class FakeMemoryManager:
-        async def try_summary(self, *args, **kwargs):
+        async def check_summary(self):
             return None
 
         async def add(self, *args, **kwargs):
@@ -100,12 +111,22 @@ def test_memory_plugin_respects_summary_interval_and_disabled_types(monkeypatch)
         state.add_user_message("human")
         state.add_assistant_message("assistant")
 
-        await plugin.execute(HookContext.create(PluginHook.BEFORE_RESPONSE, state))
+        commit_context: dict = {}
+        await plugin.execute(HookContext.create(
+            PluginHook.BEFORE_RESPONSE_COMMIT,
+            state,
+            data=commit_context,
+        ))
+        await plugin.execute(HookContext.create(
+            PluginHook.AFTER_RESPONSE_COMMIT,
+            state,
+            data=commit_context,
+        ))
         return state
 
     state = asyncio.run(scenario())
 
-    assert scheduled_tasks == ["memory.try_summary"]
+    assert scheduled_tasks == []
     assert state.summary_counter == 0
 
 
@@ -177,18 +198,7 @@ def test_memory_manager_uses_mem0_even_with_legacy_backend_env(monkeypatch) -> N
     assert isinstance(manager.semantic_memory, FakeMem0SemanticMemory)
 
 
-def test_memory_manager_does_not_save_core_chat_history(monkeypatch) -> None:
-    class FakeChatHistoryStore:
-        def __init__(self, *args, **kwargs):
-            pass
-
-    class DisabledSummaryMemory:
-        def __init__(self, *args, **kwargs):
-            raise AssertionError("diary disabled should not initialize SummaryMemory")
-
-    monkeypatch.setattr(memory_manager_module, "ChatHistoryStore", FakeChatHistoryStore)
-    monkeypatch.setattr(memory_manager_module, "SummaryMemory", DisabledSummaryMemory)
-
+def test_check_summary_is_noop_when_diary_disabled() -> None:
     async def scenario() -> None:
         manager = MemoryManager(
             "test-session",

@@ -1,11 +1,12 @@
 """记忆插件。
 
-处理图片描述、记忆检索、对话保存和长期记忆抽取。
+处理图片描述、记忆检索和长期记忆抽取。
 """
 
 import asyncio
 import logging
 import uuid
+from copy import deepcopy
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -65,7 +66,8 @@ class MemoryPlugin(BasePlugin):
         return [
             PluginHook.ON_INVOKE,
             PluginHook.BEFORE_LLM,
-            PluginHook.BEFORE_RESPONSE,
+            PluginHook.BEFORE_RESPONSE_COMMIT,
+            PluginHook.AFTER_RESPONSE_COMMIT,
         ]
 
     def _mm(self, state):
@@ -77,8 +79,10 @@ class MemoryPlugin(BasePlugin):
             self._start_image_description(state)
         elif context.hook == PluginHook.BEFORE_LLM:
             await self._inject_context(state)
-        elif context.hook == PluginHook.BEFORE_RESPONSE:
-            await self._finalize(state)
+        elif context.hook == PluginHook.BEFORE_RESPONSE_COMMIT:
+            await self._prepare_response_commit(state, context.data)
+        elif context.hook == PluginHook.AFTER_RESPONSE_COMMIT:
+            self._schedule_committed_memory(context.data)
         return context
 
     def _start_image_description(self, state) -> None:
@@ -132,46 +136,71 @@ class MemoryPlugin(BasePlugin):
             ctx = ""
         state.memory_context = f"{MEMORY_PREAMBLE}\n\n{ctx}" if ctx and ctx.strip() else ""
 
-    async def _finalize(self, state) -> None:
-        state.summary_counter += 1
-        next_counter = state.summary_counter
-
+    async def _prepare_response_commit(self, state, commit_context: dict) -> None:
+        """在 completed 提交前准备图片标注和不可变记忆任务快照。"""
         image_description, image_filenames = await self._await_image(state)
         self._annotate_latest_image_message(state, image_description, image_filenames)
-        mm = self._mm(state)
 
-        last_human = get_last_human_text(state.messages)
-        ai_messages = self._extract_new_ai_messages(state.messages)
-        has_text = any(m.get("content") for m in ai_messages)
+        next_counter = state.summary_counter + 1
+        state.summary_counter = next_counter
+        reached_interval = next_counter >= self.config.summary_every_human_messages
+        should_persist = reached_interval and (
+            self.config.enable_episodic or self.config.enable_semantic
+        )
 
-        if last_human and ai_messages and has_text:
+        if not self.config.enable_diary and not should_persist:
+            if reached_interval:
+                state.summary_counter = 0
+            return
+
+        try:
+            memory_manager = self._mm(state)
+            memory_job: dict[str, Any] = {
+                "manager": memory_manager,
+                "check_summary": self.config.enable_diary,
+            }
+            if should_persist:
+                history_msgs, recent_msgs = split_context(
+                    state.messages,
+                    later_human_count=self.config.summary_every_human_messages,
+                    previous_human_count=5,
+                )
+                memory_job["recent_messages"] = tuple(deepcopy(recent_msgs))
+                memory_job["history_messages"] = tuple(deepcopy(history_msgs))
+            commit_context["memory"] = memory_job
+        except Exception as e:
+            logger.warning("[MemoryPlugin] 准备提交后记忆任务失败: %s", e)
+            return
+
+        if reached_interval:
+            state.summary_counter = 0
+
+    def _schedule_committed_memory(self, commit_context: dict) -> None:
+        """completed 提交成功后启动派生记忆任务，不再修改 AgentState。"""
+        memory_job = commit_context.get("memory")
+        if not memory_job:
+            return
+
+        memory_manager = memory_job["manager"]
+        if memory_job.get("check_summary"):
             create_background_task(
-                mm.try_summary(
-                    last_human,
-                    ai_messages,
-                    image_description,
-                    image_filenames,
-                    enable_diary=self.config.enable_diary,
+                memory_manager.check_summary(),
+                logger=logger,
+                task_name="memory.check_summary",
+            )
+
+        recent_messages = memory_job.get("recent_messages")
+        history_messages = memory_job.get("history_messages")
+        if recent_messages is not None and history_messages is not None:
+            create_background_task(
+                self._persist(
+                    memory_manager,
+                    list(recent_messages),
+                    list(history_messages),
                 ),
                 logger=logger,
-                task_name="memory.try_summary",
+                task_name="memory.persist",
             )
-        elif not has_text:
-            logger.warning("[MemoryPlugin] AI 无有效文本输出，跳过保存本轮对话")
-
-        if next_counter >= self.config.summary_every_human_messages:
-            history_msgs, recent_msgs = split_context(
-                state.messages,
-                later_human_count=self.config.summary_every_human_messages,
-                previous_human_count=5,
-            )
-            if self.config.enable_episodic or self.config.enable_semantic:
-                create_background_task(
-                    self._persist(mm, recent_msgs, history_msgs),
-                    logger=logger,
-                    task_name="memory.persist",
-                )
-            state.summary_counter = 0
 
     async def _persist(self, mm, recent_dicts: list[dict], history_dicts: list[dict]) -> None:
         recent = messages_from_openai_format(recent_dicts)
@@ -227,27 +256,3 @@ class MemoryPlugin(BasePlugin):
 
         target["image_description"] = image_description
         target["image_filenames"] = image_filenames or []
-
-    def _extract_new_ai_messages(self, messages: list[dict]) -> list[dict]:
-        """提取最后一条真实人类消息之后的 assistant 消息。"""
-        last_human_idx = -1
-        for index in range(len(messages) - 1, -1, -1):
-            if is_real_human_message(messages[index]):
-                last_human_idx = index
-                break
-        if last_human_idx < 0:
-            return []
-
-        result: list[dict] = []
-        for msg in messages[last_human_idx + 1:]:
-            if msg.get("role") != "assistant":
-                continue
-            tool_calls = [
-                {"name": (tc.get("function") or {}).get("name", "未知工具")}
-                for tc in (msg.get("tool_calls") or [])
-            ]
-            content = extract_text(msg.get("content"))
-            if not content and not tool_calls:
-                continue
-            result.append({"content": content, "tool_calls": tool_calls})
-        return result
