@@ -10,6 +10,7 @@ from typing import AsyncIterator, Callable
 
 from app.agent.agent import Agent
 from app.agent.core.event_router import EventType
+from app.agent.core.state_manager import StateManager
 from app.crud.chat_history_dao import ChatHistoryDao
 from app.schemas.chat import AgentInput
 from app.schemas.chat_settings import ChatSettings
@@ -144,10 +145,9 @@ class AgentService:
     async def get_pending_interrupt(self, session_id: str) -> dict:
         """读取可跨前端重启恢复的中断信息。"""
         async with self._get_session_lock(session_id):
-            chat_settings = self.chat_settings_loader(session_id)
-            agent = self.agent_factory(chat_settings)
+            state_manager = StateManager(session_id)
             try:
-                state = await agent.get_state()
+                state = await state_manager.load()
                 if not state.interrupt_data:
                     return {"pending": False}
                 interrupt = state.interrupt_data
@@ -160,4 +160,4 @@ class AgentService:
                     value["data"] = interrupt["data"]
                 return {"pending": True, "interrupt": {"value": value}}
             finally:
-                await self._close(session_id, agent)
+                await state_manager.close()
