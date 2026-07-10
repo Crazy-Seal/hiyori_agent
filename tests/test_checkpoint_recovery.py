@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from app.agent.agent import Agent, AgentConfig, INTERRUPTED_TOOL_RESULT
-from app.agent.context import BaseTool, ToolContext, ToolResult
+from app.agent.context import BasePlugin, BaseTool, HookContext, PluginHook, ToolContext, ToolResult
 from app.agent.core.event_router import EventType
 from app.agent.core.pipeline import ExecutionPipeline
 from app.agent.core.state_manager import StateManager
@@ -111,6 +111,97 @@ async def checkpoint_types(manager: StateManager) -> list[str]:
 def tool_call(call_id: str, name: str = "step", label: str = "") -> StreamChunk:
     args = {"label": label} if label else {}
     return StreamChunk(tool_call=ToolCall(id=call_id, name=name, args=args))
+
+
+class CommitOrderPlugin(BasePlugin):
+    name = "commit_order"
+
+    def __init__(self, order: list[str]):
+        self.order = order
+
+    @property
+    def hooks(self) -> list[PluginHook]:
+        return [
+            PluginHook.BEFORE_RESPONSE_COMMIT,
+            PluginHook.AFTER_RESPONSE_COMMIT,
+        ]
+
+    async def execute(self, context: HookContext) -> HookContext:
+        if context.hook == PluginHook.BEFORE_RESPONSE_COMMIT:
+            self.order.append("before_commit")
+            context.data["prepared"] = True
+        elif context.hook == PluginHook.AFTER_RESPONSE_COMMIT:
+            assert context.data == {"prepared": True}
+            self.order.append("after_commit")
+        return context
+
+
+def test_response_commit_hooks_wrap_completed_checkpoint(tmp_path: Path) -> None:
+    async def scenario() -> list[str]:
+        order: list[str] = []
+        agent = await make_agent(
+            tmp_path / "checkpoints.sqlite3",
+            [[StreamChunk(content="完成")]],
+            StepTool(),
+        )
+        await agent.plugin_manager.register(CommitOrderPlugin(order), agent)
+        original_save = agent.state_manager.save
+
+        async def tracked_save(state, *, checkpoint_type):
+            checkpoint_id = await original_save(state, checkpoint_type=checkpoint_type)
+            order.append(f"save_{checkpoint_type}")
+            return checkpoint_id
+
+        agent.state_manager.save = tracked_save
+        try:
+            await drain(agent.run("开始"))
+            return order
+        finally:
+            await agent.close()
+
+    assert asyncio.run(scenario()) == [
+        "save_intermediate",
+        "before_commit",
+        "save_completed",
+        "after_commit",
+    ]
+
+
+def test_completed_checkpoint_failure_skips_after_commit_hook(tmp_path: Path) -> None:
+    async def scenario() -> tuple[list[str], int]:
+        order: list[str] = []
+        db_path = tmp_path / "checkpoints.sqlite3"
+        agent = await make_agent(
+            db_path,
+            [[StreamChunk(content="完成")]],
+            StepTool(),
+        )
+        await agent.plugin_manager.register(CommitOrderPlugin(order), agent)
+        original_save = agent.state_manager.save
+
+        async def failing_save(state, *, checkpoint_type):
+            if checkpoint_type == "completed":
+                order.append("save_completed_failed")
+                raise RuntimeError("模拟 completed 保存失败")
+            return await original_save(state, checkpoint_type=checkpoint_type)
+
+        agent.state_manager.save = failing_save
+        try:
+            with pytest.raises(RuntimeError, match="completed 保存失败"):
+                await drain(agent.run("开始"))
+        finally:
+            await agent.close()
+
+        manager = StateManager("checkpoint-test", db_path=str(db_path))
+        try:
+            persisted = await manager.load()
+            return order, persisted.summary_counter
+        finally:
+            await manager.close()
+
+    order, persisted_counter = asyncio.run(scenario())
+    assert order == ["before_commit", "save_completed_failed"]
+    assert persisted_counter == 0
 
 
 def test_completed_tool_results_survive_later_llm_failure(tmp_path: Path) -> None:

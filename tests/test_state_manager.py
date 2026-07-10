@@ -193,3 +193,14 @@ def test_state_manager_does_not_access_retired_legacy_database(
 
 def test_chat_history_store_has_no_independent_write_api() -> None:
     assert not hasattr(ChatHistoryStore, "save_chat_message")
+
+
+def test_chat_history_store_constructor_does_not_initialize_schema(tmp_path: Path) -> None:
+    db_path = tmp_path / "agent_checkpoints.sqlite3"
+
+    ChatHistoryStore(db_path=db_path)
+
+    assert not db_path.exists()
+    assert not hasattr(ChatHistoryStore, "_ensure_table")
+    assert not hasattr(ChatHistoryStore, "list_chat_history")
+    assert not hasattr(ChatHistoryStore, "has_chat_on_date")

@@ -135,7 +135,7 @@ def test_memory_manager_skips_disabled_memory_subsystems(monkeypatch) -> None:
         ),
     )
 
-    assert constructed == ["chat_history"]
+    assert constructed == []
     assert manager.summary_memory is None
     assert manager.episodic_memory is None
     assert manager.semantic_memory is None
@@ -199,13 +199,69 @@ def test_memory_manager_does_not_save_core_chat_history(monkeypatch) -> None:
                 enable_semantic=False,
             ),
         )
-        await manager.try_summary(
-            "你好",
-            [{"content": "你好呀", "tool_calls": []}],
-            enable_diary=False,
-        )
+        await manager.check_summary()
 
     asyncio.run(scenario())
+
+
+def test_memory_manager_check_summary_uses_persisted_history(monkeypatch) -> None:
+    checked_dates: list[date] = []
+
+    class FakeChatHistoryStore:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FakeSummaryMemory:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def check_and_generate(self, effective_date: date) -> None:
+            checked_dates.append(effective_date)
+
+    monkeypatch.setattr(memory_manager_module, "ChatHistoryStore", FakeChatHistoryStore)
+    monkeypatch.setattr(memory_manager_module, "SummaryMemory", FakeSummaryMemory)
+
+    manager = MemoryManager(
+        "test-session",
+        MemoryConfig(),
+        _chat_settings(
+            enable_diary=True,
+            enable_episodic=False,
+            enable_semantic=False,
+        ),
+    )
+    asyncio.run(manager.check_summary())
+
+    assert checked_dates
+
+
+def test_memory_plugin_keeps_counter_when_commit_job_preparation_fails(monkeypatch) -> None:
+    async def scenario() -> tuple[AgentState, dict]:
+        plugin = MemoryPlugin(summary_every_human_messages=3)
+        monkeypatch.setattr(
+            plugin,
+            "_mm",
+            lambda state: (_ for _ in ()).throw(RuntimeError("初始化记忆失败")),
+        )
+        state = AgentState.create_new("test-session")
+        state.summary_counter = 2
+        state.add_user_message("你好")
+        state.add_assistant_message("你好呀")
+        commit_context: dict = {}
+
+        await plugin.execute(
+            HookContext.create(
+                PluginHook.BEFORE_RESPONSE_COMMIT,
+                state,
+                data=commit_context,
+            )
+        )
+        return state, commit_context
+
+    state, commit_context = asyncio.run(scenario())
+
+    assert state.summary_counter == 3
+    assert "memory" not in commit_context
 
 def test_disabled_memory_subsystems_are_not_accessed(monkeypatch) -> None:
     class FakeChatHistoryStore:

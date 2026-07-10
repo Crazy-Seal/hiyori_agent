@@ -419,27 +419,6 @@ def test_pipeline_keeps_content_filter_error():
     assert events[-1].data == "触发 API 内容过滤"
 
 
-def test_extract_new_ai_messages_dict():
-    from app.agent.plugins.memory import MemoryPlugin
-
-    msgs = [
-        {"role": "user", "content": "看屏幕"},
-        {"role": "assistant", "content": "",
-         "tool_calls": [{"id": "c1", "type": "function",
-                         "function": {"name": "screenshot", "arguments": "{}"}}]},
-        {"role": "tool", "content": "截屏成功", "name": "screenshot", "tool_call_id": "c1"},
-        {"role": "user", "content": [{"type": "text", "text": "[系统消息]屏幕截图: "},
-                                     {"type": "image_url", "image_url": {"url": "data:.."}}],
-         "name": "system_screenshot"},
-        {"role": "assistant", "content": "我看到一只猫"},
-    ]
-    ai = MemoryPlugin()._extract_new_ai_messages(msgs)
-    # 截图是 system_screenshot（非真实人类），最后真实人类是 "看屏幕"，其后两条 assistant
-    assert [m["content"] for m in ai] == ["", "我看到一只猫"]
-    assert ai[0]["tool_calls"] == [{"name": "screenshot"}]
-    assert ai[1]["tool_calls"] == []
-
-
 # ==================== SSE 格式与 AgentService ====================
 
 def test_sse_formatter_v2_events_byte_compatible():
