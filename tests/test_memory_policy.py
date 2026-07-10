@@ -6,6 +6,8 @@ from app.agent.memory import manager as memory_manager_module
 from app.agent.memory.config import MemoryConfig
 from app.agent.memory.manager import MemoryManager
 from app.agent.message import Message
+from app.agent.message import is_real_human_message
+from app.agent.plugins.context_window import ContextWindowPlugin
 from app.agent.plugins import memory as memory_plugin_module
 from app.agent.plugins.memory import MemoryPlugin
 from app.agent.state import AgentState
@@ -56,7 +58,7 @@ def test_memory_persistence_runs_every_ten_human_messages(monkeypatch) -> None:
         plugin = MemoryPlugin()
         monkeypatch.setattr(plugin, "_mm", lambda state: FakeMemoryManager())
         state = AgentState.create_new("test-session")
-        state.summary_counter = 9
+        state.summary_counter = 10
         for index in range(10):
             state.add_user_message(f"human-{index}")
             state.add_assistant_message(f"assistant-{index}")
@@ -107,7 +109,7 @@ def test_memory_plugin_respects_summary_interval_and_disabled_types(monkeypatch)
         )
         monkeypatch.setattr(plugin, "_mm", lambda state: FakeMemoryManager())
         state = AgentState.create_new("test-session")
-        state.summary_counter = 2
+        state.summary_counter = 3
         state.add_user_message("human")
         state.add_assistant_message("assistant")
 
@@ -254,7 +256,7 @@ def test_memory_plugin_keeps_counter_when_commit_job_preparation_fails(monkeypat
             lambda state: (_ for _ in ()).throw(RuntimeError("初始化记忆失败")),
         )
         state = AgentState.create_new("test-session")
-        state.summary_counter = 2
+        state.summary_counter = 3
         state.add_user_message("你好")
         state.add_assistant_message("你好呀")
         commit_context: dict = {}
@@ -272,6 +274,75 @@ def test_memory_plugin_keeps_counter_when_commit_job_preparation_fails(monkeypat
 
     assert state.summary_counter == 3
     assert "memory" not in commit_context
+    assert commit_context["memory_checkpoint_human_floor"] == 8
+
+
+def test_memory_plugin_snapshots_every_pending_human_message(monkeypatch) -> None:
+    class FakeMemoryManager:
+        async def check_summary(self):
+            return None
+
+        async def add(self, *args, **kwargs):
+            return None
+
+    async def scenario() -> tuple[AgentState, dict]:
+        plugin = MemoryPlugin(
+            enable_diary=False,
+            summary_every_human_messages=10,
+        )
+        monkeypatch.setattr(plugin, "_mm", lambda state: FakeMemoryManager())
+        state = AgentState.create_new("test-session")
+        state.summary_counter = 11
+        for index in range(11):
+            state.add_user_message(f"human-{index}")
+            state.add_assistant_message(f"assistant-{index}")
+
+        commit_context: dict = {}
+        await plugin.execute(HookContext.create(
+            PluginHook.BEFORE_RESPONSE_COMMIT,
+            state,
+            data=commit_context,
+        ))
+        return state, commit_context
+
+    state, commit_context = asyncio.run(scenario())
+
+    recent_messages = commit_context["memory"]["recent_messages"]
+    assert sum(is_real_human_message(message) for message in recent_messages) == 11
+    assert state.summary_counter == 0
+    assert "memory_checkpoint_human_floor" not in commit_context
+
+
+def test_pending_memory_batch_raises_checkpoint_retention_floor() -> None:
+    async def scenario() -> tuple[AgentState, dict]:
+        memory_plugin = MemoryPlugin(
+            enable_diary=False,
+            summary_every_human_messages=30,
+        )
+        context_plugin = ContextWindowPlugin(recent_context_human_messages=1)
+        state = AgentState.create_new("test-session")
+        state.summary_counter = 18
+        for index in range(23):
+            state.add_user_message(f"human-{index}")
+            state.add_assistant_message(f"assistant-{index}")
+
+        commit_context: dict = {}
+        await memory_plugin.execute(HookContext.create(
+            PluginHook.BEFORE_RESPONSE_COMMIT,
+            state,
+            data=commit_context,
+        ))
+        await context_plugin.execute(HookContext.create(
+            PluginHook.BEFORE_RESPONSE_COMMIT,
+            state,
+            data=commit_context,
+        ))
+        return state, commit_context
+
+    state, commit_context = asyncio.run(scenario())
+
+    assert commit_context["memory_checkpoint_human_floor"] == 23
+    assert sum(is_real_human_message(message) for message in state.messages) == 23
 
 def test_disabled_memory_subsystems_are_not_accessed(monkeypatch) -> None:
     class FakeChatHistoryStore:

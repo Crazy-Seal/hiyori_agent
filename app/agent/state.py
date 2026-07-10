@@ -25,7 +25,7 @@ class AgentState(BaseModel):
 
     # ==================== 记忆相关 ====================
     memory_context: str | None = None  # 记忆上下文（注入到系统提示词）
-    summary_counter: int = 0           # 记忆总结计数器
+    summary_counter: int = 0           # 已持久化接收、尚未进入长期记忆批次的真实用户消息数
 
     # ==================== 工具执行上下文 ====================
     pending_tool_calls: list[dict] = Field(default_factory=list)  # 待执行的工具调用
@@ -145,13 +145,13 @@ class AgentState(BaseModel):
         self.memory_context = None
 
     def increment_summary_counter(self) -> int:
-        """增加记忆总结计数器，返回新值"""
+        """记录一条已接收的真实用户消息，返回尚未处理的消息数。"""
         self.summary_counter += 1
         self.updated_at = datetime.now()
         return self.summary_counter
 
     def reset_summary_counter(self) -> None:
-        """重置记忆总结计数器"""
+        """标记当前累计的真实用户消息已经进入长期记忆批次。"""
         self.summary_counter = 0
         self.updated_at = datetime.now()
 

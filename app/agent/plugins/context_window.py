@@ -211,9 +211,14 @@ class ContextWindowPlugin(BasePlugin):
             state.extra["llm_messages"] = msgs
         elif context.hook == PluginHook.BEFORE_RESPONSE_COMMIT:
             msgs = _compress_window_messages(state.messages, self.config)
+            memory_floor = 0
+            if isinstance(context.data, dict):
+                memory_floor = int(
+                    context.data.get("memory_checkpoint_human_floor", 0) or 0
+                )
             msgs = _slice_recent_messages_by_human(
                 msgs,
-                self.config.checkpoint_human_messages,
+                max(self.config.checkpoint_human_messages, memory_floor),
             )
             state.messages = msgs
             state.extra.pop("llm_messages", None)

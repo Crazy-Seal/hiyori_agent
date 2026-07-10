@@ -202,7 +202,7 @@ def test_completed_checkpoint_failure_skips_after_commit_hook(tmp_path: Path) ->
 
     order, persisted_counter = asyncio.run(scenario())
     assert order == ["before_commit", "save_completed_failed"]
-    assert persisted_counter == 0
+    assert persisted_counter == 1
 
 
 def test_completed_tool_results_survive_later_llm_failure(tmp_path: Path) -> None:
@@ -227,9 +227,45 @@ def test_completed_tool_results_survive_later_llm_failure(tmp_path: Path) -> Non
             tool_messages = [item for item in state.messages if item.get("role") == "tool"]
             assert [item["content"] for item in tool_messages] == ["完成 A", "完成 B", "完成 C"]
             assert state.pending_tool_calls == []
+            assert state.summary_counter == 1
             assert await checkpoint_types(agent.state_manager) == ["intermediate"]
         finally:
             await agent.close()
+
+    asyncio.run(scenario())
+
+
+def test_new_message_after_llm_failure_counts_both_human_messages(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        db_path = tmp_path / "checkpoints.sqlite3"
+        first_agent = await make_agent(
+            db_path,
+            [
+                [tool_call("call-a", label="A")],
+                RuntimeError("stream disconnected"),
+            ],
+            StepTool(),
+        )
+        try:
+            events = await drain(first_agent.run("first human message"))
+            assert events[-1].type == EventType.ERROR
+            failed_state = await first_agent.state_manager.load()
+            assert failed_state.summary_counter == 1
+        finally:
+            await first_agent.close()
+
+        second_agent = await make_agent(
+            db_path,
+            [[StreamChunk(content="continued")]],
+            StepTool(),
+        )
+        try:
+            events = await drain(second_agent.run("please continue"))
+            assert events[-1].type == EventType.DONE
+            completed_state = await second_agent.state_manager.load()
+            assert completed_state.summary_counter == 2
+        finally:
+            await second_agent.close()
 
     asyncio.run(scenario())
 
@@ -423,6 +459,7 @@ def test_interrupt_recovers_across_fresh_agents_and_repeated_response_fails(
         try:
             first_interrupt = await manager.load()
             assert first_interrupt.is_interrupted()
+            assert first_interrupt.summary_counter == 1
             assert await checkpoint_types(manager) == ["intermediate"]
         finally:
             await manager.close()
@@ -438,6 +475,13 @@ def test_interrupt_recovers_across_fresh_agents_and_repeated_response_fails(
         assert any(event.type == EventType.TEXT_CHUNK for event in third_events)
         assert resumed_calls == [True, False]
         assert all_agents[2].llm_client.closed is True
+
+        manager = StateManager("checkpoint-test", db_path=str(db_path))
+        try:
+            resumed_state = await manager.load()
+            assert resumed_state.summary_counter == 1
+        finally:
+            await manager.close()
 
         # 中断已消费，重复响应不得再次执行工具。
         with pytest.raises(RuntimeError, match="没有中断状态需要恢复"):

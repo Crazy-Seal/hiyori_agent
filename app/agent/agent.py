@@ -269,6 +269,7 @@ class Agent:
             state.add_user_message(content)
         else:
             state.add_user_message(message)
+        state.increment_summary_counter()
         await self.state_manager.save(state, checkpoint_type="intermediate")
 
         # 3. 执行管道

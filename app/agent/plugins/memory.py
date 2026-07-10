@@ -31,6 +31,9 @@ from app.agent.utils.domain.text import extract_text, get_last_human_text, split
 
 logger = logging.getLogger(__name__)
 
+MEMORY_HISTORY_HUMAN_MESSAGES = 5
+MEMORY_CHECKPOINT_HUMAN_FLOOR_KEY = "memory_checkpoint_human_floor"
+
 
 class MemoryPluginConfig(BaseModel):
     enable_diary: bool = Field(default=True, description="是否启用日记/摘要记忆。")
@@ -141,16 +144,23 @@ class MemoryPlugin(BasePlugin):
         image_description, image_filenames = await self._await_image(state)
         self._annotate_latest_image_message(state, image_description, image_filenames)
 
-        next_counter = state.summary_counter + 1
-        state.summary_counter = next_counter
-        reached_interval = next_counter >= self.config.summary_every_human_messages
+        pending_count = state.summary_counter
+        reached_interval = pending_count >= self.config.summary_every_human_messages
         should_persist = reached_interval and (
             self.config.enable_episodic or self.config.enable_semantic
         )
 
+        if pending_count > 0 and (
+            self.config.enable_episodic or self.config.enable_semantic
+        ):
+            commit_context[MEMORY_CHECKPOINT_HUMAN_FLOOR_KEY] = (
+                pending_count + MEMORY_HISTORY_HUMAN_MESSAGES
+            )
+
         if not self.config.enable_diary and not should_persist:
             if reached_interval:
                 state.summary_counter = 0
+                commit_context.pop(MEMORY_CHECKPOINT_HUMAN_FLOOR_KEY, None)
             return
 
         try:
@@ -162,8 +172,8 @@ class MemoryPlugin(BasePlugin):
             if should_persist:
                 history_msgs, recent_msgs = split_context(
                     state.messages,
-                    later_human_count=self.config.summary_every_human_messages,
-                    previous_human_count=5,
+                    later_human_count=pending_count,
+                    previous_human_count=MEMORY_HISTORY_HUMAN_MESSAGES,
                 )
                 memory_job["recent_messages"] = tuple(deepcopy(recent_msgs))
                 memory_job["history_messages"] = tuple(deepcopy(history_msgs))
@@ -174,6 +184,7 @@ class MemoryPlugin(BasePlugin):
 
         if reached_interval:
             state.summary_counter = 0
+            commit_context.pop(MEMORY_CHECKPOINT_HUMAN_FLOOR_KEY, None)
 
     def _schedule_committed_memory(self, commit_context: dict) -> None:
         """completed 提交成功后启动派生记忆任务，不再修改 AgentState。"""

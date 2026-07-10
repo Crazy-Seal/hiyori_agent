@@ -1,5 +1,6 @@
 """摘要记忆 - 按日期存储摘要和日记"""
 
+import asyncio
 import logging
 from datetime import date, timedelta
 from typing import Any
@@ -42,6 +43,7 @@ class SummaryMemory:
         self.chat_settings = chat_settings
         self.chat_history_store = chat_history_store
         self.store = DiarySqliteStore(config.sqlite_path)
+        self._summary_lock = asyncio.Lock()
 
         # 初始化 LLM
         self.llm = LLMClient(LLMConfig(
@@ -206,24 +208,30 @@ class SummaryMemory:
 
     async def _check_and_generate_summary(self, today: date) -> None:
         """检查并生成摘要"""
-        # 只统计用户消息数量
-        today_count = await self.chat_history_store.get_message_count_by_date(
-            self.session_id, today, role="Human"
-        )
-        if today_count <= 0 or today_count % self.config.summary_every_messages != 0:
-            return
+        async with self._summary_lock:
+            today_count = await self.chat_history_store.get_message_count_by_date(
+                self.session_id, today, role="Human"
+            )
+            summarized_count = await self.store.get_summary_progress(
+                self.session_id,
+                today,
+            )
+            interval = self.config.summary_every_messages
+            next_threshold = ((summarized_count // interval) + 1) * interval
+            if today_count < next_threshold:
+                return
 
-        messages = await self.chat_history_store.get_messages_by_date(
-            self.session_id, today
-        )
-        if not messages:
-            return
+            messages = await self.chat_history_store.get_messages_by_date(
+                self.session_id, today
+            )
+            if not messages:
+                return
 
-        logger.info(
-            "[SummaryMemory] 今日用户消息数达到 %d，开始生成摘要",
-            today_count
-        )
-        await self._generate_summary(today, messages)
+            logger.info(
+                "[SummaryMemory] 今日用户消息数达到 %d，开始生成摘要",
+                today_count
+            )
+            await self._generate_summary(today, messages, today_count)
 
     # ==================== LLM 生成 ====================
 
@@ -231,6 +239,7 @@ class SummaryMemory:
         self,
         target_date: date,
         messages: list[dict[str, Any]],
+        summarized_human_count: int,
     ) -> None:
         """生成指定日期的摘要"""
         prompt = await self._build_system_prompt(messages, target_date, "对话摘要")
@@ -239,7 +248,12 @@ class SummaryMemory:
                 messages=[{"role": "user", "content": prompt}]
             )
             summary_content = response.content
-            await self.add(target_date, summary_content, is_diary=False)
+            await self.store.add_summary_with_progress(
+                session_id=self.session_id,
+                date_obj=target_date,
+                content=summary_content,
+                summarized_human_count=summarized_human_count,
+            )
             logger.info(
                 "[SummaryMemory] 摘要生成成功: date=%s, length=%d",
                 target_date, len(summary_content)
