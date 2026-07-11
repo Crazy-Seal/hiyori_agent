@@ -2,7 +2,7 @@
  * IPC 处理器注册
  */
 
-import { ipcMain, BrowserWindow, dialog, net, desktopCapturer, screen, type IpcMainInvokeEvent } from "electron";
+import { ipcMain, BrowserWindow, dialog, net, desktopCapturer, screen, clipboard, type IpcMainInvokeEvent } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -46,6 +46,8 @@ import {
   fetchAvailablePlugins,
 } from "./chat-settings.js";
 import { getMainWindow, getSettingsWindow, openSettingsWindow, openImagePreviewWindow } from "./window-manager.js";
+import { resolveScreenActionPoint } from "./screen-action-coordinates.js";
+import { pasteScreenActionText } from "./screen-action-input.js";
 
 /**
  * 通知模型已更改（同时通知主窗口和设置窗口）
@@ -141,8 +143,7 @@ const performScreenAction = async (payload: ScreenActionRequest): Promise<Screen
     const nut = await import("@nut-tree-fork/nut-js");
     const display = screen.getPrimaryDisplay();
     const bounds = display.bounds;
-    const x = Math.round(bounds.x + coordinates.x_ratio * bounds.width);
-    const y = Math.round(bounds.y + coordinates.y_ratio * bounds.height);
+    const { x, y } = resolveScreenActionPoint(coordinates, bounds);
     const point = new nut.Point(x, y);
 
     await nut.mouse.setPosition(point);
@@ -165,11 +166,25 @@ const performScreenAction = async (payload: ScreenActionRequest): Promise<Screen
     }
 
     if (payload.text) {
-      await nut.keyboard.type(payload.text);
-      if (payload.press_enter) {
-        await nut.keyboard.pressKey(nut.Key.Enter);
-        await nut.keyboard.releaseKey(nut.Key.Enter);
-      }
+      await pasteScreenActionText({
+        text: payload.text,
+        pressEnter: payload.press_enter,
+        clipboard: {
+          readText: () => clipboard.readText(),
+          writeText: (text) => clipboard.writeText(text),
+          availableFormats: () => clipboard.availableFormats(),
+          readHTML: () => clipboard.readHTML(),
+          readRTF: () => clipboard.readRTF(),
+          readImage: () => clipboard.readImage(),
+          write: (data) => clipboard.write(data as Electron.Data),
+        },
+        keyboard: nut.keyboard,
+        keys: {
+          leftControl: nut.Key.LeftControl,
+          v: nut.Key.V,
+          enter: nut.Key.Enter,
+        },
+      });
     }
 
     return { executed: true };
