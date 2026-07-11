@@ -347,6 +347,7 @@ export class ChatHistoryManager {
       const sentence = this.sentenceQueue.shift();
       if (sentence) {
         this.appendSentenceBubble(sentence);
+        this.scrollToBottom();
       }
     }
   }

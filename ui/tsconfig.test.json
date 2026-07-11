@@ -9,5 +9,5 @@
     "rootDir": ".",
     "types": ["node"]
   },
-  "include": ["tests/**/*.ts"]
+  "include": ["tests/**/*.ts", "src/global.d.ts"]
 }
