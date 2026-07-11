@@ -13,6 +13,7 @@
 """
 
 import inspect
+import json
 import types
 import typing
 from typing import Any, Callable, Type, Union, Literal, get_args, get_origin
@@ -75,6 +76,15 @@ def _model_schema(model: type[BaseModel]) -> dict:
     schema = _inline_defs(schema, defs)
     _strip_titles(schema)
     return schema
+
+
+def _is_json_schema_default(value: Any) -> bool:
+    """判断函数默认值是否可安全放入 JSON Schema 的 default 字段。"""
+    try:
+        json.dumps(value)
+    except TypeError:
+        return False
+    return True
 
 
 def _json_type(tp: Any) -> dict:
@@ -152,6 +162,8 @@ def _build_schema(func: Callable) -> tuple[dict, str | None]:
         properties[pname] = prop
         if param.default is inspect.Parameter.empty:
             required.append(pname)
+        elif _is_json_schema_default(param.default):
+            prop["default"] = param.default
 
     schema: dict = {"type": "object", "properties": properties}
     if required:

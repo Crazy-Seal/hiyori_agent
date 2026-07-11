@@ -34,7 +34,7 @@ def test_restore_vlm_point_maps_1000_canvas_to_screenshot_size() -> None:
 def test_control_screen_initial_interrupt_requests_capture_without_confirmation() -> None:
     async def run():
         tool = control_screen()
-        return await tool.execute({"target": "搜索框"}, _context())
+        return await tool.execute({"target": "search box"}, _context())
 
     result = asyncio.run(run())
 
@@ -44,13 +44,28 @@ def test_control_screen_initial_interrupt_requests_capture_without_confirmation(
     assert result.resume_state["phase"] == "awaiting_capture"
     assert result.resume_state["action"]["operation"] == "double"
     assert result.resume_state["action"]["press_enter"] is True
+    assert result.resume_state["action"]["scroll_direction"] == "down"
 
 
-def test_control_screen_rejects_scroll_without_direction() -> None:
+def test_control_screen_defaults_scroll_direction_to_down() -> None:
     async def run():
         tool = control_screen()
         return await tool.execute(
-            {"target": "列表", "operation": "scroll", "scroll_direction": "none"},
+            {"target": "list", "operation": "scroll"},
+            _context(),
+        )
+
+    result = asyncio.run(run())
+
+    assert result.interrupt is not None
+    assert result.resume_state["action"]["scroll_direction"] == "down"
+
+
+def test_control_screen_rejects_none_scroll_direction_for_scroll_operation() -> None:
+    async def run():
+        tool = control_screen()
+        return await tool.execute(
+            {"target": "list", "operation": "scroll", "scroll_direction": "none"},
             _context(),
         )
 
@@ -58,12 +73,27 @@ def test_control_screen_rejects_scroll_without_direction() -> None:
 
     assert result.interrupt is None
     assert result.content.startswith("错误:")
-    assert "滚动操作必须指定" in result.content
+    assert "scroll_direction" in result.content
+
+
+def test_control_screen_ignores_scroll_direction_for_non_scroll_operation() -> None:
+    async def run():
+        tool = control_screen()
+        return await tool.execute(
+            {"target": "search box", "operation": "click", "scroll_direction": "sideways"},
+            _context(),
+        )
+
+    result = asyncio.run(run())
+
+    assert result.interrupt is not None
+    assert result.resume_state["action"]["operation"] == "click"
+    assert result.resume_state["action"]["scroll_direction"] == "down"
 
 
 def test_control_screen_capture_resume_sends_execute_payload(monkeypatch) -> None:
     async def fake_locate(_self, intent, image_data_url):
-        assert intent == "搜索框"
+        assert intent == "search box"
         assert image_data_url == "data:image/png;base64,AAA"
         return [400, 200, 600, 400]
 
@@ -73,7 +103,7 @@ def test_control_screen_capture_resume_sends_execute_payload(monkeypatch) -> Non
         tool = control_screen()
         return await tool.execute(
             {
-                "target": "搜索框",
+                "target": "search box",
                 "operation": "click",
                 "text": "hello",
                 "press_enter": False,
@@ -95,7 +125,7 @@ def test_control_screen_capture_resume_sends_execute_payload(monkeypatch) -> Non
 
     assert result.interrupt is not None
     assert result.interrupt.type == "control_screen_execute_request"
-    assert result.interrupt.data["target"] == "搜索框"
+    assert result.interrupt.data["target"] == "search box"
     assert result.interrupt.data["operation"] == "click"
     assert result.interrupt.data["text"] == "hello"
     assert result.interrupt.data["press_enter"] is False
@@ -108,7 +138,7 @@ def test_control_screen_execution_resume_injects_screenshot() -> None:
     async def run():
         tool = control_screen()
         return await tool.execute(
-            {"target": "搜索框"},
+            {"target": "search box"},
             _context(
                 resume_data={
                     "approved": True,
@@ -129,7 +159,7 @@ def test_control_screen_execution_resume_handles_rejection() -> None:
     async def run():
         tool = control_screen()
         return await tool.execute(
-            {"target": "搜索框"},
+            {"target": "search box"},
             _context(
                 resume_data={"approved": False},
                 resume_state={"phase": "awaiting_execution"},

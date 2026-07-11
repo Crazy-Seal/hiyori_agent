@@ -31,11 +31,12 @@ def _validate_args(
     if resolved_operation not in {"click", "double", "right", "scroll"}:
         return "操作方式必须是 click、double、right 或 scroll。"
 
-    resolved_scroll_direction = scroll_direction or "none"
-    if resolved_scroll_direction not in {"none", "down", "up"}:
-        return "滚动方向必须是 none、down 或 up。"
-    if resolved_operation == "scroll" and resolved_scroll_direction == "none":
-        return "滚动操作必须指定 scroll_direction 为 down 或 up。"
+    resolved_scroll_direction = scroll_direction or "down"
+    if resolved_operation == "scroll":
+        if resolved_scroll_direction not in {"down", "up"}:
+            return "滚动操作的 scroll_direction 必须是 down 或 up。"
+    else:
+        resolved_scroll_direction = "down"
 
     resolved_wait_seconds = 3 if wait_seconds is None else wait_seconds
     if resolved_wait_seconds < 0 or resolved_wait_seconds > 60:
@@ -79,15 +80,19 @@ def restore_vlm_point(
 
 @tool(is_resumable=True)
 async def control_screen(
-    target: Annotated[str, "要操作的光标位置描述，如'页面上方的搜索框''确认界面中左下方的确认按钮'。必须输入。"],
+    target: Annotated[str, "操作时的光标位置描述，换句话说就是操作的时候把光标放在哪，例如'页面上方的搜索框'。必须输入。"],
     operation: Annotated[Operation, "操作方式：click 单击、double 双击、right 右键、scroll 滚动。"] = "double",
     text: Annotated[str, "操作后要在该位置输入的文字；为空则不输入。"] = "",
     press_enter: Annotated[bool, "输入文字后是否按回车。"] = True,
     wait_seconds: Annotated[int, "操作后的等待时长，单位秒，用于等待页面加载。"] = 3,
-    scroll_direction: Annotated[ScrollDirection, "滚动方向：none、down 或 up。仅 scroll 操作需要指定。"] = "none",
+    scroll_direction: Annotated[ScrollDirection, "滚动方向：none、down 或 up。仅 scroll 操作使用，默认 down。"] = "down",
     context: ToolContext | None = None,
 ) -> ToolResult:
-    """操作用户的屏幕，并回传操作后的屏幕截图。调用此工具前，你需要知道屏幕上的情况，如不知道，可以通过截屏工具获取"""
+    """操作用户的屏幕，并回传操作后的屏幕截图。
+
+    调用此工具前，你需要知道屏幕上的情况，如不知道，可以通过截屏工具获取。
+    注意：每轮工具调用中，只允许使用一次该工具；该工具传回操作后的截图后再判断下一步操作。
+    """
     normalized = _validate_args(target, operation, text, press_enter, wait_seconds, scroll_direction)
     if isinstance(normalized, str):
         return ToolResult.error(normalized)
