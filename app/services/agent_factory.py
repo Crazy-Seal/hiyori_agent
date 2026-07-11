@@ -2,7 +2,6 @@
 
 from app.agent.agent import Agent, AgentConfig
 from app.schemas.chat_settings import (
-    CONTEXT_WINDOW_DEFAULT_CONFIG,
     MEMORY_DEFAULT_CONFIG,
     ChatSettings,
 )
@@ -20,14 +19,6 @@ def build_agent(chat_settings: ChatSettings) -> Agent:
     """根据会话配置构造一个 Agent。"""
     plugins: list[dict] = [
         {
-            "name": "context_window",
-            "config": _plugin_config(
-                chat_settings,
-                "context_window",
-                CONTEXT_WINDOW_DEFAULT_CONFIG,
-            ),
-        },
-        {
             "name": "memory",
             "config": _plugin_config(chat_settings, "memory", MEMORY_DEFAULT_CONFIG),
         },
@@ -41,6 +32,7 @@ def build_agent(chat_settings: ChatSettings) -> Agent:
         temperature=chat_settings.temperature,
         system_prompt=chat_settings.system_prompt,
         tools=list(chat_settings.tools_list or []),
+        context_strategy=chat_settings.context_strategy,
         plugins=plugins,
         skills=list(chat_settings.skills or []),
     )

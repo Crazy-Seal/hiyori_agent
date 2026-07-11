@@ -1,8 +1,9 @@
+from app.agent.context_strategy import ContextStrategyConfig
 from app.schemas.chat_settings import AgentPluginSettings, ChatSettings
 from app.services import agent_factory
 
 
-def _settings(agent_plugins=None):
+def _settings(agent_plugins=None, context_strategy=None):
     return ChatSettings(
         session_id="test-session",
         model_name="test-model",
@@ -12,6 +13,7 @@ def _settings(agent_plugins=None):
         system_prompt="test",
         tools_list=[],
         agent_plugins=agent_plugins,
+        context_strategy=context_strategy or ContextStrategyConfig(),
         skills=[],
     )
 
@@ -21,14 +23,8 @@ def test_memory_plugin_owns_image_processing(monkeypatch) -> None:
 
     config = agent_factory.build_agent(_settings())
 
+    assert config.context_strategy.recent_context_human_messages == 10
     assert config.plugins == [
-        {"name": "context_window", "config": {
-            "recent_context_human_messages": 10,
-            "max_images_in_context": 5,
-            "image_ttl_human_messages": 10,
-            "max_screenshots_in_context": 2,
-            "screenshot_ttl_human_messages": 2,
-        }},
         {"name": "memory", "config": {
             "enable_diary": True,
             "enable_episodic": True,
@@ -38,15 +34,12 @@ def test_memory_plugin_owns_image_processing(monkeypatch) -> None:
     ]
 
 
-def test_agent_factory_uses_plugin_config_and_forces_context_window(monkeypatch) -> None:
+def test_agent_factory_uses_top_level_context_strategy(monkeypatch) -> None:
     monkeypatch.setattr(agent_factory, "Agent", lambda config: config)
 
     settings = _settings(
+        context_strategy=ContextStrategyConfig(recent_context_human_messages=3),
         agent_plugins={
-            "context_window": AgentPluginSettings(
-                enabled=False,
-                config={"recent_context_human_messages": 3},
-            ),
             "memory": AgentPluginSettings(
                 enabled=False,
                 config={
@@ -61,14 +54,8 @@ def test_agent_factory_uses_plugin_config_and_forces_context_window(monkeypatch)
 
     config = agent_factory.build_agent(settings)
 
+    assert config.context_strategy.recent_context_human_messages == 3
     assert config.plugins == [
-        {"name": "context_window", "config": {
-            "recent_context_human_messages": 3,
-            "max_images_in_context": 5,
-            "image_ttl_human_messages": 10,
-            "max_screenshots_in_context": 2,
-            "screenshot_ttl_human_messages": 2,
-        }},
         {"name": "memory", "config": {
             "enable_diary": False,
             "enable_episodic": True,
@@ -96,7 +83,7 @@ def test_agent_factory_loads_memory_when_all_memory_types_are_disabled(monkeypat
 
     config = agent_factory.build_agent(settings)
 
-    assert config.plugins[1] == {
+    assert config.plugins[0] == {
         "name": "memory",
         "config": {
             "enable_diary": False,

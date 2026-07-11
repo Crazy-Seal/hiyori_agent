@@ -71,6 +71,9 @@ export interface EditingState {
   tools?: {
     tools_list: string[];
   };
+  contextStrategy?: {
+    context_strategy: ChatSettingsState["context_strategy"];
+  };
   plugins?: {
     agent_plugins: NonNullable<ChatSettingsState["agent_plugins"]>;
   };
@@ -101,6 +104,7 @@ export interface PageEditingData {
   llm?: EditingState["llm"];
   motion?: EditingState["motion"];
   tools?: EditingState["tools"];
+  contextStrategy?: EditingState["contextStrategy"];
   plugins?: EditingState["plugins"];
 }
 

@@ -2,14 +2,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.agent.context_strategy import ContextStrategyConfig
 
-CONTEXT_WINDOW_DEFAULT_CONFIG = {
-    "recent_context_human_messages": 10,
-    "max_images_in_context": 5,
-    "image_ttl_human_messages": 10,
-    "max_screenshots_in_context": 2,
-    "screenshot_ttl_human_messages": 2,
-}
 
 MEMORY_DEFAULT_CONFIG = {
     "enable_diary": True,
@@ -49,6 +43,7 @@ class ChatSettings(BaseModel):
     temperature: float
     system_prompt: str
     tools_list: list[str]
+    context_strategy: ContextStrategyConfig
     agent_plugins: dict[str, AgentPluginSettings] | None = None
     skills: list[str] | None = None
 
@@ -62,18 +57,6 @@ class ChatSettings(BaseModel):
     @model_validator(mode="after")
     def normalize_agent_plugins(self) -> "ChatSettings":
         plugins = dict(self.agent_plugins or {})
-
-        context_window = plugins.get("context_window")
-        plugins["context_window"] = AgentPluginSettings(
-            enabled=True,
-            config=_validate_plugin_config(
-                "context_window",
-                _merge_plugin_config(
-                    CONTEXT_WINDOW_DEFAULT_CONFIG,
-                    context_window.config if context_window else None,
-                ),
-            ),
-        )
 
         memory = plugins.get("memory")
         if memory is None:
@@ -91,7 +74,7 @@ class ChatSettings(BaseModel):
             )
 
         for name, settings in list(plugins.items()):
-            if name in {"context_window", "memory"}:
+            if name == "memory":
                 continue
             plugins[name] = AgentPluginSettings(
                 enabled=settings.enabled,
@@ -110,6 +93,7 @@ class ChatSettings(BaseModel):
             self.temperature,
             self.system_prompt,
             tuple(self.tools_list),
+            tuple(sorted(self.context_strategy.model_dump().items())),
             tuple(
                 (name, settings.enabled, tuple(sorted(settings.config.items())))
                 for name, settings in sorted(self.agent_plugins.items())

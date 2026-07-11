@@ -225,6 +225,15 @@ class ExecutionPipeline:
             state,
             data=commit_context if commit_context is not None else {},
         )
+        memory_human_floor = 0
+        if commit_context is not None:
+            memory_human_floor = int(
+                commit_context.get("memory_checkpoint_human_floor", 0) or 0
+            )
+        self.agent.context_strategy.compact_checkpoint(
+            state,
+            memory_human_floor=memory_human_floor,
+        )
 
         yield AgentEvent(EventType.DONE, None)
 
@@ -254,8 +263,7 @@ class ExecutionPipeline:
     def _build_messages(self, state: AgentState) -> list[dict]:
         """构建发送给 LLM 的消息列表
 
-        优先使用插件裁剪后的 state.extra["llm_messages"]（送模型窗口），
-        否则退回完整历史。
+        上下文策略是必经核心能力，不允许退回完整历史。
         """
         messages: list[dict] = []
 
@@ -266,9 +274,8 @@ class ExecutionPipeline:
         if system_prompt:
             messages.append(Message.system_message(system_prompt).to_openai_format())
 
-        # 对话历史：优先用 ContextWindowPlugin 在 BEFORE_LLM 写入的裁剪窗口；
-        # pop 而非 get——用完即弃，避免临时窗口被持久化进 checkpoint。
-        history = state.extra.pop("llm_messages", None) or state.get_openai_messages()
+        # 上下文策略生成临时窗口，不修改持久化消息。
+        history = self.agent.context_strategy.build_model_window(state)
         messages.extend(history)
 
         return messages

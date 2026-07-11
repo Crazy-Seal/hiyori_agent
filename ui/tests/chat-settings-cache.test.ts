@@ -20,6 +20,13 @@ const savedSettings: ChatSettingsData = {
   temperature: 0.7,
   system_prompt: "saved prompt",
   tools_list: [],
+  context_strategy: {
+    recent_context_human_messages: 10,
+    max_images_in_context: 5,
+    image_ttl_human_messages: 10,
+    max_screenshots_in_context: 2,
+    screenshot_ttl_human_messages: 2,
+  },
 };
 
 afterEach(() => {
@@ -60,7 +67,6 @@ test("PUT 成功后更新 ChatSettings 缓存", async () => {
 test("前端默认 memory 插件为固有启用", () => {
   const defaults = getDefaultAgentPluginsForTest();
 
-  assert.equal(defaults.context_window.enabled, true);
   assert.equal(defaults.memory.enabled, true);
 });
 

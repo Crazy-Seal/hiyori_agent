@@ -10,11 +10,6 @@ import type {
 type PluginSettingsMap = NonNullable<ChatSettingsState["agent_plugins"]>;
 
 const CONFIG_LABELS: Record<string, string> = {
-  recent_context_human_messages: "上下文消息轮数",
-  max_images_in_context: "上下文最大图片数",
-  image_ttl_human_messages: "图片 TTL",
-  max_screenshots_in_context: "上下文最大截图数",
-  screenshot_ttl_human_messages: "截图 TTL",
   enable_diary: "启用日记",
   enable_episodic: "启用情景记忆",
   enable_semantic: "启用语义记忆",
@@ -22,11 +17,6 @@ const CONFIG_LABELS: Record<string, string> = {
 };
 
 const NUMBER_FIELDS = new Set([
-  "recent_context_human_messages",
-  "max_images_in_context",
-  "image_ttl_human_messages",
-  "max_screenshots_in_context",
-  "screenshot_ttl_human_messages",
   "summary_every_human_messages",
 ]);
 

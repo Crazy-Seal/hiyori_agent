@@ -17,6 +17,7 @@ from app.agent.core.state_manager import StateManager
 from app.agent.core.event_router import EventRouter, EventType, AgentEvent
 from app.agent.core.pipeline import ExecutionPipeline
 from app.agent.models.llm_client import LLMClient, LLMConfig
+from app.agent.context_strategy import ContextStrategyConfig, ContextStrategyManager
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ class AgentConfig:
     session_id: str
     model_name: str
     api_key: str
+    context_strategy: ContextStrategyConfig
     base_url: str = "https://api.openai.com/v1"
     temperature: float = 0.7
     max_tokens: int = 4096
@@ -62,6 +64,7 @@ class Agent:
         else:
             self.state_manager = StateManager(config.session_id)
         self.event_router = EventRouter()
+        self.context_strategy = ContextStrategyManager(config.context_strategy)
 
         # LLM 客户端
         self.llm_client = LLMClient(LLMConfig(
@@ -448,6 +451,7 @@ async def create_agent(
         session_id=session_id,
         model_name=model_name,
         api_key=api_key,
+        context_strategy=ContextStrategyConfig(),
         base_url=base_url,
         temperature=temperature,
         system_prompt=system_prompt,

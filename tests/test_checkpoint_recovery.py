@@ -6,6 +6,7 @@ import pytest
 
 from app.agent.agent import Agent, AgentConfig, INTERRUPTED_TOOL_RESULT
 from app.agent.context import BasePlugin, BaseTool, HookContext, PluginHook, ToolContext, ToolResult
+from app.agent.context_strategy import ContextStrategyConfig, ContextStrategyManager
 from app.agent.core.event_router import EventType
 from app.agent.core.pipeline import ExecutionPipeline
 from app.agent.core.state_manager import StateManager
@@ -83,7 +84,12 @@ async def make_agent(
     session_id: str = "checkpoint-test",
 ) -> Agent:
     agent = Agent(
-        AgentConfig(session_id=session_id, model_name="test", api_key="test"),
+        AgentConfig(
+            session_id=session_id,
+            model_name="test",
+            api_key="test",
+            context_strategy=ContextStrategyConfig(),
+        ),
         db_path=str(db_path),
     )
     await agent.llm_client.close()
@@ -392,7 +398,13 @@ def test_checkpoint_failure_keeps_tool_marked_pending() -> None:
             from app.agent.core.plugin_manager import PluginManager
             from app.agent.core.tool_manager import ToolManager
 
-            self.config = AgentConfig(session_id="test", model_name="test", api_key="test")
+            self.config = AgentConfig(
+                session_id="test",
+                model_name="test",
+                api_key="test",
+                context_strategy=ContextStrategyConfig(),
+            )
+            self.context_strategy = ContextStrategyManager(self.config.context_strategy)
             self.plugin_manager = PluginManager()
             self.tool_manager = ToolManager()
             self.tool_manager.register(StepTool())

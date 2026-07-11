@@ -36,6 +36,7 @@
           <button class="settings-tab" type="button" data-page="llm">LLM配置</button>
           <button class="settings-tab" type="button" data-page="motion">表情控制</button>
           <button class="settings-tab" type="button" data-page="memory">插件管理</button>
+          <button class="settings-tab" type="button" data-page="contextStrategy">上下文策略</button>
           <button class="settings-tab" type="button" data-page="tools">工具调用</button>
           <button class="settings-tab" type="button" data-page="mcp">MCP</button>
           <button class="settings-tab" type="button" data-page="multimodal">多模态</button>
@@ -158,6 +159,31 @@
               <div id="plugins-list" class="plugins-list"></div>
               <div id="plugins-empty" class="plugins-empty" hidden>未发现可用插件</div>
               <button id="plugins-confirm-btn" type="button" class="plugins-confirm-btn">保存插件配置</button>
+            </div>
+          </div>
+          <div class="settings-page" data-page="contextStrategy">
+            <div class="llm-config-panel">
+              <label class="llm-field">
+                <span>上下文消息轮数</span>
+                <input id="context-recent-human-messages" type="number" min="1" step="1" />
+              </label>
+              <label class="llm-field">
+                <span>上下文最大图片数</span>
+                <input id="context-max-images" type="number" min="0" step="1" />
+              </label>
+              <label class="llm-field">
+                <span>图片 TTL</span>
+                <input id="context-image-ttl" type="number" min="0" step="1" />
+              </label>
+              <label class="llm-field">
+                <span>上下文最大截图数</span>
+                <input id="context-max-screenshots" type="number" min="0" step="1" />
+              </label>
+              <label class="llm-field">
+                <span>截图 TTL</span>
+                <input id="context-screenshot-ttl" type="number" min="0" step="1" />
+              </label>
+              <button id="context-strategy-confirm-btn" type="button" class="llm-confirm-btn">保存上下文策略</button>
             </div>
           </div>
           <div class="settings-page" data-page="tools">

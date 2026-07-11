@@ -56,6 +56,7 @@ export type ChatSettingsData = {
   temperature: number;
   system_prompt: string;
   tools_list: string[];
+  context_strategy: ContextStrategyConfig;
   agent_plugins?: Record<string, AgentPluginSettings> | null;
   name?: string | null;
   feature?: string | null;
@@ -63,6 +64,14 @@ export type ChatSettingsData = {
   address?: string | null;
   characteristic?: string | null;
   constraint?: string | null;
+};
+
+export type ContextStrategyConfig = {
+  recent_context_human_messages: number;
+  max_images_in_context: number;
+  image_ttl_human_messages: number;
+  max_screenshots_in_context: number;
+  screenshot_ttl_human_messages: number;
 };
 
 export type AgentPluginSettings = {

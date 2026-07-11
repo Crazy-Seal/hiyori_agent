@@ -16,16 +16,6 @@ import { getActiveModelRecord } from "./model-manager.js";
 let chatSettingsCache: ChatSettingsData | null = null;
 
 const DEFAULT_AGENT_PLUGINS: NonNullable<ChatSettingsData["agent_plugins"]> = {
-  context_window: {
-    enabled: true,
-    config: {
-      recent_context_human_messages: 10,
-      max_images_in_context: 5,
-      image_ttl_human_messages: 10,
-      max_screenshots_in_context: 2,
-      screenshot_ttl_human_messages: 2,
-    },
-  },
   memory: {
     enabled: true,
     config: {
@@ -35,6 +25,14 @@ const DEFAULT_AGENT_PLUGINS: NonNullable<ChatSettingsData["agent_plugins"]> = {
       summary_every_human_messages: 10,
     },
   },
+};
+
+const DEFAULT_CONTEXT_STRATEGY: ChatSettingsData["context_strategy"] = {
+  recent_context_human_messages: 10,
+  max_images_in_context: 5,
+  image_ttl_human_messages: 10,
+  max_screenshots_in_context: 2,
+  screenshot_ttl_human_messages: 2,
 };
 
 export const getDefaultAgentPluginsForTest = (): NonNullable<ChatSettingsData["agent_plugins"]> =>
@@ -108,6 +106,10 @@ export const fetchChatSettingsBySessionId = async (
     tools_list: Array.isArray(result.data.tools_list)
       ? result.data.tools_list.map((item) => String(item))
       : [],
+    context_strategy: {
+      ...DEFAULT_CONTEXT_STRATEGY,
+      ...(result.data.context_strategy || {}),
+    },
     agent_plugins: normalizeAgentPlugins(result.data.agent_plugins),
     name: result.data.name ?? null,
     feature: result.data.feature ?? null,
@@ -221,6 +223,7 @@ export const createEmptyChatSettings = async (sessionId: string): Promise<void> 
     temperature: 0,
     system_prompt: "",
     tools_list: [],
+    context_strategy: { ...DEFAULT_CONTEXT_STRATEGY },
     agent_plugins: DEFAULT_AGENT_PLUGINS,
     name: null,
     feature: null,

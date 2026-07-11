@@ -1,10 +1,7 @@
-import asyncio
-
-from app.agent.context import HookContext, PluginHook
 from app.agent.message import SCREENSHOT_COMPRESSED_NAME, SCREENSHOT_MESSAGE_NAME
-from app.agent.plugins.context_window import (
-    ContextWindowPluginConfig,
-    ContextWindowPlugin,
+from app.agent.context_strategy import (
+    ContextStrategyConfig,
+    ContextStrategyManager,
     _compress_screenshot_messages,
     _compress_window_messages,
     _slice_recent_messages_by_human,
@@ -72,37 +69,33 @@ def test_message_window_counts_only_real_human_messages() -> None:
     assert screenshot_count == 10
 
 
-def test_context_window_hooks_apply_model_and_checkpoint_limits() -> None:
-    async def scenario() -> tuple[int, int]:
-        plugin = ContextWindowPlugin(
-            recent_context_human_messages=6,
-        )
-        state = AgentState.create_new("test-session")
-        for index in range(25):
-            state.add_user_message(f"human-{index}")
-            state.add_assistant_message(f"assistant-{index}")
+def test_context_strategy_applies_model_and_checkpoint_limits() -> None:
+    manager = ContextStrategyManager(
+        ContextStrategyConfig(recent_context_human_messages=6)
+    )
+    state = AgentState.create_new("test-session")
+    for index in range(25):
+        state.add_user_message(f"human-{index}")
+        state.add_assistant_message(f"assistant-{index}")
 
-        await plugin.execute(HookContext.create(PluginHook.BEFORE_LLM, state))
-        model_human_count = sum(
-            1
-            for message in state.extra["llm_messages"]
-            if message.get("role") == "user"
-        )
+    model_messages = manager.build_model_window(state)
+    model_human_count = sum(
+        1 for message in model_messages if message.get("role") == "user"
+    )
+    original_messages = list(state.messages)
 
-        await plugin.execute(HookContext.create(
-            PluginHook.BEFORE_RESPONSE_COMMIT,
-            state,
-        ))
-        checkpoint_human_count = sum(
-            1 for message in state.messages if message.get("role") == "user"
-        )
-        return model_human_count, checkpoint_human_count
+    manager.compact_checkpoint(state, memory_human_floor=20)
+    checkpoint_human_count = sum(
+        1 for message in state.messages if message.get("role") == "user"
+    )
 
-    assert asyncio.run(scenario()) == (6, 16)
+    assert model_human_count == 6
+    assert len(original_messages) == 50
+    assert checkpoint_human_count == 20
 
 
 def test_user_images_are_compressed_by_ttl_and_max_count() -> None:
-    config = ContextWindowPluginConfig(
+    config = ContextStrategyConfig(
         max_images_in_context=1,
         image_ttl_human_messages=2,
     )
@@ -129,7 +122,7 @@ def test_user_images_are_compressed_by_ttl_and_max_count() -> None:
 
 
 def test_compressed_user_image_uses_message_level_image_description() -> None:
-    config = ContextWindowPluginConfig(image_ttl_human_messages=1)
+    config = ContextStrategyConfig(image_ttl_human_messages=1)
     image_message = _image_message(1)
     image_message["image_description"] = "一只橘猫趴在键盘旁边。"
 

@@ -10,6 +10,7 @@ import { ModelPage } from "./pages/model-page.js";
 import { LlmPage } from "./pages/llm-page.js";
 import { ToolsPage } from "./pages/tools-page.js";
 import { PluginsPage } from "./pages/plugins-page.js";
+import { ContextStrategyPage } from "./pages/context-strategy-page.js";
 import { MultimodalPage } from "./pages/multimodal-page.js";
 import { MotionPage } from "./pages/motion-page.js";
 import type {
@@ -34,6 +35,7 @@ class SettingsApp {
   private llmPage: ISettingsPage;
   private toolsPage: ISettingsPage;
   private pluginsPage: ISettingsPage;
+  private contextStrategyPage: ISettingsPage;
   private multimodalPage: MultimodalPage;
   private motionPage: ISettingsPage;
   private confirmDialog: ConfirmDialog;
@@ -112,6 +114,17 @@ class SettingsApp {
       this.getElement("#plugins-confirm-btn")
     );
 
+    this.contextStrategyPage = new ContextStrategyPage(
+      {
+        recent_context_human_messages: this.getElement("#context-recent-human-messages"),
+        max_images_in_context: this.getElement("#context-max-images"),
+        image_ttl_human_messages: this.getElement("#context-image-ttl"),
+        max_screenshots_in_context: this.getElement("#context-max-screenshots"),
+        screenshot_ttl_human_messages: this.getElement("#context-screenshot-ttl"),
+      },
+      this.getElement("#context-strategy-confirm-btn")
+    );
+
     // 初始化多模态配置页面
     this.multimodalPage = new MultimodalPage(
       this.getElement("#checkbox-hide-on-screenshot")
@@ -129,6 +142,7 @@ class SettingsApp {
     this.pages.set("llm", this.llmPage);
     this.pages.set("tools", this.toolsPage);
     this.pages.set("memory", this.pluginsPage);
+    this.pages.set("contextStrategy", this.contextStrategyPage);
     this.pages.set("motion", this.motionPage);
 
     // 设置事件回调
@@ -138,6 +152,7 @@ class SettingsApp {
     this.llmPage.onEvent(eventCallback);
     this.toolsPage.onEvent(eventCallback);
     this.pluginsPage.onEvent(eventCallback);
+    this.contextStrategyPage.onEvent(eventCallback);
     this.motionPage.onEvent(eventCallback);
 
     this.setupEventListeners();
@@ -370,6 +385,8 @@ class SettingsApp {
         await this.saveToolsSettings(editingData.tools);
       } else if (pageName === "memory" && editingData.plugins) {
         await this.savePluginSettings(editingData.plugins);
+      } else if (pageName === "contextStrategy" && editingData.contextStrategy) {
+        await this.saveContextStrategy(editingData.contextStrategy);
       } else {
         return;
       }
@@ -477,6 +494,20 @@ class SettingsApp {
       agent_plugins: pluginsData.agent_plugins,
     };
 
+    await window.desktopPetApi.updateChatSettings(newState);
+    this.savedState = newState;
+  }
+
+  private async saveContextStrategy(
+    contextData: NonNullable<EditingState["contextStrategy"]>
+  ): Promise<void> {
+    if (!this.savedState) {
+      return;
+    }
+    const newState: ChatSettingsState = {
+      ...this.savedState,
+      context_strategy: contextData.context_strategy,
+    };
     await window.desktopPetApi.updateChatSettings(newState);
     this.savedState = newState;
   }

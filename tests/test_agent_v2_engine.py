@@ -13,6 +13,7 @@ import pytest
 
 from app.agent.agent import AgentConfig
 from app.agent.context import BaseTool, ToolResult
+from app.agent.context_strategy import ContextStrategyConfig, ContextStrategyManager
 from app.agent.core.event_router import EventRouter, EventType
 from app.agent.core.pipeline import ExecutionPipeline
 from app.agent.core.plugin_manager import PluginManager
@@ -86,12 +87,16 @@ class _FakeLLM:
 
 class _FakeAgent:
     def __init__(self, llm, tools):
-        self.config = AgentConfig(session_id="t", model_name="m", api_key="k", system_prompt="sys")
+        self.config = AgentConfig(
+            session_id="t", model_name="m", api_key="k",
+            context_strategy=ContextStrategyConfig(), system_prompt="sys",
+        )
         self.tool_manager = ToolManager()
         for t in tools:
             self.tool_manager.register(t)
         self.plugin_manager = PluginManager()
         self.event_router = EventRouter()
+        self.context_strategy = ContextStrategyManager(self.config.context_strategy)
         self.llm_client = llm
         self.pipeline = ExecutionPipeline(self)
 
@@ -363,15 +368,12 @@ def test_resumable_screenshot_roundtrip():
     assert state.interrupt_data is None
 
 
-# ==================== 上下文窗口插件 ====================
+# ==================== 核心上下文策略 ====================
 
-def test_context_window_plugin_builds_and_pops_window():
-    from app.agent.plugins.context_window import ContextWindowPlugin
-
+def test_context_strategy_builds_without_temporary_state():
     async def run():
         llm = _FakeLLM(scripts=[[StreamChunk(content="你好呀")]])
         agent = _FakeAgent(llm, tools=[])
-        await agent.plugin_manager.register(ContextWindowPlugin(), agent)
         state = AgentState.create_new("t")
         state.add_user_message("在吗")
         events = await _drain(agent.pipeline.execute(state))
@@ -379,8 +381,7 @@ def test_context_window_plugin_builds_and_pops_window():
 
     state, events = asyncio.run(run())
     assert events[-1].type == EventType.DONE
-    # 送模型窗口用完即弃，不残留进 state（否则会被持久化）
-    assert "llm_messages" not in state.extra
+    assert state.extra == {}
     # state.messages 仍含完整对话
     roles = [m.get("role") for m in state.messages]
     assert roles == ["user", "assistant"]
@@ -613,6 +614,7 @@ def test_skill_loads_tools_and_prompt_fragment():
 
     async def run():
         config = AgentConfig(session_id="t", model_name="m", api_key="k",
+                             context_strategy=ContextStrategyConfig(),
                              system_prompt="基础", skills=["test_skill"])
         agent = Agent(config)
         await agent.initialize()

@@ -2,12 +2,12 @@ import asyncio
 from datetime import date
 
 from app.agent.context import HookContext, PluginHook
+from app.agent.context_strategy import ContextStrategyConfig, ContextStrategyManager
 from app.agent.memory import manager as memory_manager_module
 from app.agent.memory.config import MemoryConfig
 from app.agent.memory.manager import MemoryManager
 from app.agent.message import Message
 from app.agent.message import is_real_human_message
-from app.agent.plugins.context_window import ContextWindowPlugin
 from app.agent.plugins import memory as memory_plugin_module
 from app.agent.plugins.memory import MemoryPlugin
 from app.agent.state import AgentState
@@ -23,6 +23,7 @@ def _chat_settings(*, enable_diary=True, enable_episodic=True, enable_semantic=T
         temperature=0.1,
         system_prompt="test",
         tools_list=[],
+        context_strategy=ContextStrategyConfig(),
         agent_plugins={
             "memory": AgentPluginSettings(
                 enabled=True,
@@ -319,7 +320,9 @@ def test_pending_memory_batch_raises_checkpoint_retention_floor() -> None:
             enable_diary=False,
             summary_every_human_messages=30,
         )
-        context_plugin = ContextWindowPlugin(recent_context_human_messages=1)
+        context_strategy = ContextStrategyManager(
+            ContextStrategyConfig(recent_context_human_messages=1)
+        )
         state = AgentState.create_new("test-session")
         state.summary_counter = 18
         for index in range(23):
@@ -332,11 +335,10 @@ def test_pending_memory_batch_raises_checkpoint_retention_floor() -> None:
             state,
             data=commit_context,
         ))
-        await context_plugin.execute(HookContext.create(
-            PluginHook.BEFORE_RESPONSE_COMMIT,
+        context_strategy.compact_checkpoint(
             state,
-            data=commit_context,
-        ))
+            memory_human_floor=commit_context["memory_checkpoint_human_floor"],
+        )
         return state, commit_context
 
     state, commit_context = asyncio.run(scenario())
