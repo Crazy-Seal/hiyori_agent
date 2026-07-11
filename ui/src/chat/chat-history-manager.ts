@@ -193,6 +193,9 @@ export class ChatHistoryManager {
    * 启动流式响应状态
    */
   startStreaming(): void {
+    if (!this.isStreaming && this.sentenceQueue.length > 0) {
+      this.flushFinalizedQueue();
+    }
     this.abortStreaming();
     this.streamingContent = "";
     this.isStreaming = true;
@@ -271,8 +274,6 @@ export class ChatHistoryManager {
     if (remaining.trim().length > 0) {
       this.sentenceQueue.push(remaining.trim());
     }
-    this.flushQueue();
-    this.stopOutputTimer();
 
     // 存入 messages 数组（用于历史记录和重新渲染）
     if (this.streamingContent) {
@@ -340,9 +341,9 @@ export class ChatHistoryManager {
   }
 
   /**
-   * 立即输出队列中所有句子
+   * 新一轮开始前完整显示上一轮已经结束但尚未输出的句子。
    */
-  private flushQueue(): void {
+  private flushFinalizedQueue(): void {
     while (this.sentenceQueue.length > 0) {
       const sentence = this.sentenceQueue.shift();
       if (sentence) {
@@ -365,7 +366,9 @@ export class ChatHistoryManager {
 
     item.appendChild(bubble);
     this.container.appendChild(item);
-    this.streamingDraftItems.push(item);
+    if (this.isStreaming) {
+      this.streamingDraftItems.push(item);
+    }
   }
 
   /**
