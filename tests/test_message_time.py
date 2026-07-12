@@ -108,24 +108,25 @@ def _create_legacy_db(path: Path) -> None:
         )
 
 
-def test_state_manager_migrates_legacy_prefix_once(tmp_path: Path) -> None:
+def test_state_manager_startup_does_not_clean_legacy_content(tmp_path: Path) -> None:
     db_path = tmp_path / "agent.sqlite3"
     _create_legacy_db(db_path)
 
-    async def scenario() -> tuple[str, str, str, int, str]:
+    async def scenario() -> tuple[str, str, bool, str]:
         manager = StateManager("legacy", db_path=str(db_path))
         state = await manager.load()
         await manager.close()
-        second_manager = StateManager("legacy", db_path=str(db_path))
-        await second_manager.load()
-        await second_manager.close()
         with sqlite3.connect(db_path) as conn:
-            history_content, history_time = conn.execute(
-                "SELECT content, timestamp FROM chat_history WHERE source_message_id='m1:content'"
+            history_content = conn.execute(
+                "SELECT content FROM chat_history WHERE source_message_id='m1:content'"
             ).fetchone()
-            migration_count = conn.execute(
-                "SELECT COUNT(*) FROM schema_migrations WHERE name='message_time_metadata_v1'"
-            ).fetchone()[0]
+            table_names = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                )
+            }
+            has_migration_table = "schema_" + "migrations" in table_names
         visible_history = await ChatHistoryDao(db_path=db_path).list_chat_history_async(
             "legacy"
         )
@@ -134,24 +135,21 @@ def test_state_manager_migrates_legacy_prefix_once(tmp_path: Path) -> None:
         )
         return (
             state.messages[0]["content"],
-            history_content,
-            history_time,
-            migration_count,
+            history_content[0],
+            has_migration_table,
             bracket_content,
         )
 
     (
         checkpoint_content,
         history_content,
-        history_time,
-        migration_count,
+        has_migration_table,
         bracket_content,
     ) = asyncio.run(scenario())
 
-    assert checkpoint_content == "原始输入"
-    assert history_content == "原始输入"
-    assert history_time == "2026-07-12T03:04:05+00:00"
-    assert migration_count == 1
+    assert checkpoint_content.startswith("[2026-07-12 11:04:05 +0800 星期日]")
+    assert history_content.startswith("[2026-07-12 11:04:05 +0800 星期日]")
+    assert has_migration_table is False
     assert bracket_content == "[TODO] 保留方括号"
 
 

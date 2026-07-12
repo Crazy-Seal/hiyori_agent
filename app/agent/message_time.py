@@ -3,15 +3,10 @@
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import re
 from typing import Any
 
 
 WEEKDAYS = ("星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日")
-LEGACY_TIME_PREFIX = re.compile(
-    r"^\[(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4}) "
-    r"星期[一二三四五六日天]\]\s*"
-)
 
 
 def utc_now() -> datetime:
@@ -36,14 +31,6 @@ def format_local_time(value: datetime | str) -> str:
 
 def render_timed_text(content: str, timestamp: datetime | str) -> str:
     return f"[发送时间：{format_local_time(timestamp)}] {content}"
-
-
-def strip_legacy_time_prefix(content: str) -> tuple[str, datetime | None]:
-    match = LEGACY_TIME_PREFIX.match(content)
-    if not match:
-        return content, None
-    parsed = datetime.strptime(match.group("timestamp"), "%Y-%m-%d %H:%M:%S %z")
-    return content[match.end():], parsed.astimezone(timezone.utc)
 
 
 def _project_content(content: Any, timestamp: datetime | str) -> Any:
