@@ -303,6 +303,8 @@ def test_tool_call_extra_content_roundtrips_into_followup_request():
 
     llm, state, events = asyncio.run(run())
     assert events[-1].type == EventType.DONE
+    assert llm.messages[0][0] == llm.messages[1][0]
+    assert "当前本地日期时间：" in llm.messages[0][0]["content"]
 
     assistant_call = next(
         message for message in llm.messages[1]
@@ -453,8 +455,10 @@ def test_agent_service_v2_stream_and_close():
     class _StubAgent:
         def __init__(self):
             self.closed = False
+            self.received_message = None
 
         async def run(self, message, images=None):
+            self.received_message = message
             yield AgentEvent(ET.TEXT_CHUNK, "在")
             yield AgentEvent(ET.TOOL_CALL, "search_memory")
             yield AgentEvent(ET.TEXT_CHUNK, "的")
@@ -490,6 +494,7 @@ def test_agent_service_v2_stream_and_close():
     ]
     # 正常结束（无中断）后 agent 被关闭
     assert stub.closed is True
+    assert stub.received_message == "在吗"
 
 
 class _AInput:

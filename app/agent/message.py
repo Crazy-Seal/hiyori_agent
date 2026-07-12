@@ -9,6 +9,8 @@ from datetime import datetime
 from enum import Enum
 import json
 
+from app.agent.message_time import normalize_utc, utc_now
+
 
 SCREENSHOT_MESSAGE_NAME = "system_screenshot"
 SCREENSHOT_COMPRESSED_NAME = "system_screenshot_compressed"
@@ -114,7 +116,7 @@ class Message:
     """消息基类"""
     role: MessageRole
     content: str | list[ContentPart]
-    timestamp: datetime = field(default_factory=datetime.now)
+    timestamp: datetime = field(default_factory=utc_now)
     name: str | None = None  # 用于 tool 消息标识工具名称
 
     def to_openai_format(self) -> dict:
@@ -141,7 +143,12 @@ class Message:
         return cls(
             role=role,
             content=content,
-            name=data.get("name")
+            name=data.get("name"),
+            timestamp=(
+                normalize_utc(data["_created_at"])
+                if data.get("_created_at")
+                else utc_now()
+            ),
         )
 
     @classmethod
@@ -209,7 +216,12 @@ class AssistantMessageWithTools(Message):
             role=role,
             content=content,
             name=data.get("name"),
-            tool_calls=tool_calls
+            tool_calls=tool_calls,
+            timestamp=(
+                normalize_utc(data["_created_at"])
+                if data.get("_created_at")
+                else utc_now()
+            ),
         )
 
 
@@ -232,7 +244,12 @@ def messages_from_openai_format(data_list: list[dict]) -> list[Message]:
                 role=role,
                 content=data.get("content", ""),
                 name=data.get("name"),
-                tool_call_id=data.get("tool_call_id")
+                tool_call_id=data.get("tool_call_id"),
+                timestamp=(
+                    normalize_utc(data["_created_at"])
+                    if data.get("_created_at")
+                    else utc_now()
+                ),
             ))
         else:
             messages.append(Message.from_openai_format(data))

@@ -12,6 +12,7 @@ from mem0 import Memory
 from app.agent.memory.base import MemoryItem
 from app.agent.memory.config import MemoryConfig
 from app.agent.message import Message, MessageRole
+from app.agent.message_time import render_timed_text
 from app.schemas.chat_settings import ChatSettings
 
 logger = logging.getLogger(__name__)
@@ -301,8 +302,14 @@ class Mem0SemanticMemory:
                 text = str(content)
 
             if text.strip():
+                has_tool_calls = bool(getattr(msg, "tool_calls", None))
+                text = (
+                    text.strip()
+                    if has_tool_calls
+                    else render_timed_text(text.strip(), msg.timestamp)
+                )
                 if mark_as_history:
-                    text = f"[前情提要] {text.strip()}"
-                mem0_messages.append({"role": role, "content": text.strip()})
+                    text = f"[前情提要] {text}"
+                mem0_messages.append({"role": role, "content": text})
 
         return mem0_messages

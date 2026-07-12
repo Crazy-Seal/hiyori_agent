@@ -5,7 +5,6 @@
 
 import logging
 import asyncio
-from datetime import datetime
 from typing import AsyncIterator, Callable
 
 from app.agent.agent import Agent
@@ -34,13 +33,6 @@ class AgentService:
     def _get_session_lock(self, session_id: str) -> asyncio.Lock:
         return self._session_locks.setdefault(session_id, asyncio.Lock())
 
-    @staticmethod
-    def _build_timed_user_message(user_message: str) -> str:
-        now = datetime.now().astimezone()
-        weekday_text = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"][now.weekday()]
-        now_text = f"{now.strftime('%Y-%m-%d %H:%M:%S %z')} {weekday_text}"
-        return f"[{now_text}] {user_message}"
-
     def get_health_data(self, session_id: str) -> dict[str, str]:
         chat_settings = self.chat_settings_loader(session_id)
         return {"status": "ok", "model": chat_settings.model_name}
@@ -55,9 +47,11 @@ class AgentService:
             chat_settings = self.chat_settings_loader(session_id)
             agent = self.agent_factory(chat_settings)
 
-            message = self._build_timed_user_message(agent_input.message)
             try:
-                async for event in agent.run(message, images=agent_input.images):
+                async for event in agent.run(
+                    agent_input.message,
+                    images=agent_input.images,
+                ):
                     if event.type == EventType.ERROR:
                         raise RuntimeError(event.data)
                     if event.type == EventType.DONE:

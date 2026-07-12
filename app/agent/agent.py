@@ -18,6 +18,7 @@ from app.agent.core.event_router import EventRouter, EventType, AgentEvent
 from app.agent.core.pipeline import ExecutionPipeline
 from app.agent.models.llm_client import LLMClient, LLMConfig
 from app.agent.context_strategy import ContextStrategyConfig, ContextStrategyManager
+from app.agent.message_time import RuntimeContext
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +214,7 @@ class Agent:
             AgentEvent: 事件流
         """
         await self.initialize()
+        runtime_context = RuntimeContext.capture()
 
         # 1. 加载或创建状态
         state = await self.state_manager.load()
@@ -282,6 +284,7 @@ class Agent:
             state,
             checkpoint=self.state_manager.save,
             commit_context=commit_context,
+            runtime_context=runtime_context,
         ):
             if event.type == EventType.ERROR:
                 # 出错时不写最终 checkpoint，已经提交的工具进度继续保留。
@@ -328,6 +331,7 @@ class Agent:
             AgentEvent: 事件流
         """
         await self.initialize()
+        runtime_context = RuntimeContext.capture()
 
         # 1. 加载状态
         state = await self.state_manager.load()
@@ -346,6 +350,7 @@ class Agent:
             resume_data,
             checkpoint=self.state_manager.save,
             commit_context=commit_context,
+            runtime_context=runtime_context,
         ):
             if event.type == EventType.ERROR:
                 errored = True

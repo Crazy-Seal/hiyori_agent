@@ -13,6 +13,7 @@ from app.agent.memory.memories.summary import SummaryMemory
 from app.agent.memory.store.chat_history_store import ChatHistoryStore
 from app.agent.message import Message, MessageRole
 from app.agent.utils.domain.text import extract_text
+from app.agent.message_time import render_timed_text
 from app.crud.chat_settings_dao import ChatSettingsDao
 from app.schemas.chat_settings import MEMORY_DEFAULT_CONFIG, ChatSettings
 
@@ -334,12 +335,14 @@ class MemoryManager:
                 if hasattr(msg, 'tool_calls') and msg.tool_calls:
                     tool_names = [tc.name for tc in msg.tool_calls]
                     content = f"[调用了工具: {', '.join(tool_names)}]"
+                    lines.append(f"{role}: {content}")
+                    continue
                 else:
                     content = extract_text(msg.content)
             else:
                 # 跳过 system、tool 等其他类型
                 continue
-            lines.append(f"{role}: {content}")
+            lines.append(f"{role}: {render_timed_text(content, msg.timestamp)}")
         return "\n".join(lines)
 
 

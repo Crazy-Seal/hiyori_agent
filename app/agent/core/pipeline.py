@@ -27,6 +27,7 @@ from app.agent.message import (
 )
 from app.agent.state import AgentState
 from app.agent.models.llm_client import StreamChunk
+from app.agent.message_time import RuntimeContext
 from app.agent.core.state_manager import CheckpointType
 if TYPE_CHECKING:
     from app.agent.agent import Agent
@@ -58,6 +59,7 @@ class ExecutionPipeline:
         state: AgentState,
         checkpoint: CheckpointCallback | None = None,
         commit_context: dict | None = None,
+        runtime_context: RuntimeContext | None = None,
     ) -> AsyncIterator[AgentEvent]:
         """执行主循环（一轮对话的起点）"""
         # ON_INVOKE 钩子 - 每轮仅在此触发一次
@@ -65,7 +67,10 @@ class ExecutionPipeline:
             PluginHook.ON_INVOKE, state
         )
 
-        async for event in self._run_loop(state, checkpoint, commit_context):
+        runtime_context = runtime_context or RuntimeContext.capture()
+        async for event in self._run_loop(
+            state, checkpoint, commit_context, runtime_context
+        ):
             yield event
 
     async def resume_tools(
@@ -74,6 +79,7 @@ class ExecutionPipeline:
         resume_data: dict,
         checkpoint: CheckpointCallback | None = None,
         commit_context: dict | None = None,
+        runtime_context: RuntimeContext | None = None,
     ) -> AsyncIterator[AgentEvent]:
         """从中断恢复：先跑完被中断的工具与剩余待执行工具，再回到 LLM 循环。
 
@@ -132,7 +138,10 @@ class ExecutionPipeline:
             await self._checkpoint(state, checkpoint)
 
         # 3. 回到 LLM 循环（不重跑 ON_INVOKE）
-        async for event in self._run_loop(state, checkpoint, commit_context):
+        runtime_context = runtime_context or RuntimeContext.capture()
+        async for event in self._run_loop(
+            state, checkpoint, commit_context, runtime_context
+        ):
             yield event
 
     # ==================== 核心循环 ====================
@@ -142,6 +151,7 @@ class ExecutionPipeline:
         state: AgentState,
         checkpoint: CheckpointCallback | None = None,
         commit_context: dict | None = None,
+        runtime_context: RuntimeContext | None = None,
     ) -> AsyncIterator[AgentEvent]:
         """LLM ↔ 工具循环主体（不含 ON_INVOKE）"""
         while True:
@@ -156,7 +166,8 @@ class ExecutionPipeline:
             finish_reason: str | None = None
 
             try:
-                async for chunk in self._call_llm(state):
+                runtime_context = runtime_context or RuntimeContext.capture()
+                async for chunk in self._call_llm(state, runtime_context):
                     if chunk.content:
                         accumulated_content += chunk.content
                         yield AgentEvent(EventType.TEXT_CHUNK, chunk.content)
@@ -248,9 +259,13 @@ class ExecutionPipeline:
 
     # ==================== LLM 调用 ====================
 
-    async def _call_llm(self, state: AgentState) -> AsyncIterator[StreamChunk]:
+    async def _call_llm(
+        self,
+        state: AgentState,
+        runtime_context: RuntimeContext,
+    ) -> AsyncIterator[StreamChunk]:
         """调用 LLM，保留文本、工具调用和终止原因。"""
-        messages = self._build_messages(state)
+        messages = self._build_messages(state, runtime_context)
         tools = self.agent.tool_manager.get_openai_tools()
 
         async for chunk in self.agent.llm_client.astream(messages, tools=tools or None):
@@ -260,7 +275,11 @@ class ExecutionPipeline:
                 raise RuntimeError("触发 API 内容过滤")
             yield chunk
 
-    def _build_messages(self, state: AgentState) -> list[dict]:
+    def _build_messages(
+        self,
+        state: AgentState,
+        runtime_context: RuntimeContext,
+    ) -> list[dict]:
         """构建发送给 LLM 的消息列表
 
         上下文策略是必经核心能力，不允许退回完整历史。
@@ -269,6 +288,11 @@ class ExecutionPipeline:
 
         # 系统提示词（拼接记忆上下文）
         system_prompt = self.agent.config.system_prompt
+        system_prompt = (
+            f"{system_prompt}\n\n{runtime_context.system_text}"
+            if system_prompt
+            else runtime_context.system_text
+        )
         if state.memory_context:
             system_prompt = f"{system_prompt}\n\n{state.memory_context}"
         if system_prompt:

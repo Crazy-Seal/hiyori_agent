@@ -14,6 +14,7 @@ from app.agent.message import (
     ToolCall,
     messages_from_openai_format,
 )
+from app.agent.message_time import utc_now
 
 
 class AgentState(BaseModel):
@@ -39,8 +40,8 @@ class AgentState(BaseModel):
     extra: dict[str, Any] = Field(default_factory=dict)  # 供插件使用
 
     # ==================== 时间戳 ====================
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     class Config:
         arbitrary_types_allowed = True
@@ -53,7 +54,7 @@ class AgentState(BaseModel):
         serialized["_message_id"] = uuid4().hex
         serialized["_created_at"] = message.timestamp.isoformat()
         self.messages.append(serialized)
-        self.updated_at = datetime.now()
+        self.updated_at = utc_now()
 
     def add_user_message(self, content: str | list[ContentPart]) -> None:
         """添加用户消息"""
@@ -90,12 +91,12 @@ class AgentState(BaseModel):
     def add_pending_tool_call(self, tool_call: ToolCall) -> None:
         """添加待执行的工具调用"""
         self.pending_tool_calls.append(tool_call.to_dict())
-        self.updated_at = datetime.now()
+        self.updated_at = utc_now()
 
     def set_pending_tool_calls(self, tool_calls: list[ToolCall]) -> None:
         """用一组新的工具调用替换当前待执行列表。"""
         self.pending_tool_calls = [tool_call.to_dict() for tool_call in tool_calls]
-        self.updated_at = datetime.now()
+        self.updated_at = utc_now()
 
     def remove_pending_tool_call(self, tool_call_id: str) -> None:
         """按调用 ID 移除一个已经获得结果的工具调用。"""
@@ -103,12 +104,12 @@ class AgentState(BaseModel):
             item for item in self.pending_tool_calls
             if item.get("id") != tool_call_id
         ]
-        self.updated_at = datetime.now()
+        self.updated_at = utc_now()
 
     def clear_pending_tool_calls(self) -> None:
         """清空待执行的工具调用"""
         self.pending_tool_calls = []
-        self.updated_at = datetime.now()
+        self.updated_at = utc_now()
 
     def get_pending_tool_calls(self) -> list[ToolCall]:
         """获取待执行的工具调用列表"""
@@ -121,13 +122,13 @@ class AgentState(BaseModel):
         """设置中断状态"""
         self.interrupt_data = interrupt_data
         self.pending_actions = pending_actions or []
-        self.updated_at = datetime.now()
+        self.updated_at = utc_now()
 
     def clear_interrupt(self) -> None:
         """清除中断状态"""
         self.interrupt_data = None
         self.pending_actions = []
-        self.updated_at = datetime.now()
+        self.updated_at = utc_now()
 
     def is_interrupted(self) -> bool:
         """检查是否处于中断状态"""
@@ -138,7 +139,7 @@ class AgentState(BaseModel):
     def set_memory_context(self, context: str) -> None:
         """设置记忆上下文"""
         self.memory_context = context
-        self.updated_at = datetime.now()
+        self.updated_at = utc_now()
 
     def clear_memory_context(self) -> None:
         """清除记忆上下文"""
@@ -147,20 +148,20 @@ class AgentState(BaseModel):
     def increment_summary_counter(self) -> int:
         """记录一条已接收的真实用户消息，返回尚未处理的消息数。"""
         self.summary_counter += 1
-        self.updated_at = datetime.now()
+        self.updated_at = utc_now()
         return self.summary_counter
 
     def reset_summary_counter(self) -> None:
         """标记当前累计的真实用户消息已经进入长期记忆批次。"""
         self.summary_counter = 0
-        self.updated_at = datetime.now()
+        self.updated_at = utc_now()
 
     # ==================== 扩展字段操作 ====================
 
     def set_extra(self, key: str, value: Any) -> None:
         """设置扩展字段"""
         self.extra[key] = value
-        self.updated_at = datetime.now()
+        self.updated_at = utc_now()
 
     def get_extra(self, key: str, default: Any = None) -> Any:
         """获取扩展字段"""
@@ -169,7 +170,7 @@ class AgentState(BaseModel):
     def update_extra(self, data: dict) -> None:
         """批量更新扩展字段"""
         self.extra.update(data)
-        self.updated_at = datetime.now()
+        self.updated_at = utc_now()
 
     # ==================== 序列化 ====================
 

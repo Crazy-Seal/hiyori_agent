@@ -11,6 +11,7 @@ from app.agent.message import (
     is_user_message,
 )
 from app.agent.state import AgentState
+from app.agent.message_time import project_messages_with_time
 from app.agent.utils.domain.text import normalize_messages_for_model
 
 
@@ -30,8 +31,18 @@ _COMPRESSED_SCREENSHOT_PLACEHOLDER = "[系统消息]已被压缩的旧截图"
 _COMPRESSED_IMAGE_PLACEHOLDER = "[系统消息]已被压缩的旧图片"
 
 
-def _compressed_screenshot() -> dict:
-    return {"role": "user", "content": _COMPRESSED_SCREENSHOT_PLACEHOLDER, "name": SCREENSHOT_COMPRESSED_NAME}
+def _compressed_screenshot(message: dict) -> dict:
+    result = {
+        key: deepcopy(value)
+        for key, value in message.items()
+        if key not in {"content", "name"}
+    }
+    result.update({
+        "role": "user",
+        "content": _COMPRESSED_SCREENSHOT_PLACEHOLDER,
+        "name": SCREENSHOT_COMPRESSED_NAME,
+    })
+    return result
 
 
 def _compress_screenshot_messages(messages: list[dict], config: ContextStrategyConfig | None = None) -> list[dict]:
@@ -42,14 +53,14 @@ def _compress_screenshot_messages(messages: list[dict], config: ContextStrategyC
             continue
         human_count_after = sum(1 for later in messages[index + 1:] if is_real_human_message(later))
         if human_count_after >= config.screenshot_ttl_human_messages:
-            result[index] = _compressed_screenshot()
+            result[index] = _compressed_screenshot(message)
     screenshot_indices = [
         index for index, message in enumerate(result)
         if is_user_message(message) and message.get("name") == SCREENSHOT_MESSAGE_NAME
     ]
     excess = len(screenshot_indices) - config.max_screenshots_in_context
     for index in screenshot_indices[:max(excess, 0)]:
-        result[index] = _compressed_screenshot()
+        result[index] = _compressed_screenshot(result[index])
     return result
 
 
@@ -119,7 +130,7 @@ class ContextWindowPolicy:
     def build_model_window(self, messages: list[dict]) -> list[dict]:
         compressed = _compress_window_messages(messages, self.config)
         sliced = _slice_recent_messages_by_human(compressed, self.config.recent_context_human_messages)
-        return normalize_messages_for_model(sliced)
+        return normalize_messages_for_model(project_messages_with_time(sliced))
 
     def build_checkpoint_window(self, messages: list[dict], *, memory_human_floor: int = 0) -> list[dict]:
         compressed = _compress_window_messages(messages, self.config)

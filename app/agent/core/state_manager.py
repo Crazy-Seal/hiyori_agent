@@ -16,6 +16,7 @@ import aiosqlite
 from app.agent.message import is_real_human_message
 from app.agent.state import AgentState
 from app.agent.utils.domain.text import extract_text
+from app.agent.message_time import normalize_utc, strip_legacy_time_prefix, utc_now
 from app.runtime import get_checkpoint_db
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ class StateManager:
 
     # 每个 session 最多保留的完成态数量；中间态另外最多保留一条。
     MAX_COMPLETED_CHECKPOINTS_PER_SESSION = 30
+    MESSAGE_TIME_MIGRATION = "message_time_metadata_v1"
 
     def __init__(
         self,
@@ -101,13 +103,147 @@ class StateManager:
             CREATE INDEX IF NOT EXISTS idx_chat_history_thread_timestamp
             ON chat_history(thread_id, timestamp, id)
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                name TEXT PRIMARY KEY,
+                applied_at TIMESTAMP NOT NULL
+            )
+        """)
         await db.commit()
+        await self._migrate_message_time_metadata(db)
+
+    @staticmethod
+    def _normalize_timestamp(value: object) -> str | None:
+        if not isinstance(value, (str, datetime)) or not value:
+            return None
+        try:
+            return normalize_utc(value).isoformat()
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _clean_legacy_message_content(message: dict) -> datetime | None:
+        content = message.get("content")
+        if isinstance(content, str):
+            cleaned, timestamp = strip_legacy_time_prefix(content)
+            message["content"] = cleaned
+            return timestamp
+        if not isinstance(content, list):
+            return None
+        for part in content:
+            if not isinstance(part, dict) or part.get("type") != "text":
+                continue
+            cleaned, timestamp = strip_legacy_time_prefix(str(part.get("text", "")))
+            if timestamp is not None:
+                part["text"] = cleaned
+                return timestamp
+        return None
+
+    async def _migrate_message_time_metadata(
+        self,
+        db: aiosqlite.Connection,
+    ) -> None:
+        applied = await db.execute_fetchall(
+            "SELECT 1 FROM schema_migrations WHERE name = ?",
+            (self.MESSAGE_TIME_MIGRATION,),
+        )
+        if applied:
+            return
+
+        try:
+            await db.execute("BEGIN IMMEDIATE")
+            applied_after_lock = await db.execute_fetchall(
+                "SELECT 1 FROM schema_migrations WHERE name = ?",
+                (self.MESSAGE_TIME_MIGRATION,),
+            )
+            if applied_after_lock:
+                await db.commit()
+                return
+            history_times: dict[str, str] = {}
+            history_rows = await db.execute_fetchall(
+                "SELECT id, source_message_id, timestamp, content FROM chat_history"
+            )
+            for row_id, source_message_id, timestamp, content in history_rows:
+                cleaned, embedded_time = strip_legacy_time_prefix(content or "")
+                normalized = (
+                    embedded_time.isoformat()
+                    if embedded_time is not None
+                    else self._normalize_timestamp(timestamp)
+                )
+                if normalized is None:
+                    continue
+                await db.execute(
+                    "UPDATE chat_history SET content = ?, timestamp = ? WHERE id = ?",
+                    (cleaned, normalized, row_id),
+                )
+                if source_message_id:
+                    history_times[source_message_id] = normalized
+
+            checkpoint_rows = await db.execute_fetchall(
+                "SELECT id, state_json, created_at FROM checkpoints"
+            )
+            for checkpoint_id, state_json, checkpoint_created_at in checkpoint_rows:
+                data = json.loads(state_json)
+                messages = data.get("messages") or []
+                resolved_times: list[str | None] = []
+                fallback = (
+                    self._normalize_timestamp(data.get("updated_at"))
+                    or self._normalize_timestamp(checkpoint_created_at)
+                    or utc_now().isoformat()
+                )
+                for message in messages:
+                    embedded_time = self._clean_legacy_message_content(message)
+                    message_id = message.get("_message_id")
+                    history_time = (
+                        history_times.get(f"{message_id}:content")
+                        if message_id
+                        else None
+                    )
+                    resolved = (
+                        embedded_time.isoformat()
+                        if embedded_time is not None
+                        else self._normalize_timestamp(message.get("_created_at"))
+                        or history_time
+                    )
+                    resolved_times.append(resolved)
+
+                nearest: str | None = None
+                for index, resolved in enumerate(resolved_times):
+                    if resolved:
+                        nearest = resolved
+                    elif nearest:
+                        resolved_times[index] = nearest
+                nearest = None
+                for index in range(len(resolved_times) - 1, -1, -1):
+                    if resolved_times[index]:
+                        nearest = resolved_times[index]
+                    elif nearest:
+                        resolved_times[index] = nearest
+
+                for message, resolved in zip(messages, resolved_times):
+                    if message.get("role") in {"user", "assistant"}:
+                        message["_created_at"] = resolved or fallback
+
+                await db.execute(
+                    "UPDATE checkpoints SET state_json = ? WHERE id = ?",
+                    (json.dumps(data, ensure_ascii=False, default=str), checkpoint_id),
+                )
+
+            await db.execute(
+                "INSERT INTO schema_migrations(name, applied_at) VALUES (?, ?)",
+                (self.MESSAGE_TIME_MIGRATION, utc_now().isoformat()),
+            )
+            await db.commit()
+        except BaseException:
+            await db.rollback()
+            raise
 
     @staticmethod
     def _ensure_message_metadata(state: AgentState) -> None:
         for message in state.messages:
             message.setdefault("_message_id", uuid4().hex)
-            message.setdefault("_created_at", state.updated_at.isoformat())
+            created_at = message.get("_created_at") or state.updated_at
+            message["_created_at"] = normalize_utc(created_at).isoformat()
 
     @staticmethod
     def _history_rows(state: AgentState) -> list[tuple]:
@@ -219,7 +355,7 @@ class StateManager:
                     self.session_id,
                     state_json,
                     checkpoint_type,
-                    datetime.now().isoformat(),
+                    utc_now().isoformat(),
                 ),
             )
             checkpoint_id = cursor.lastrowid
