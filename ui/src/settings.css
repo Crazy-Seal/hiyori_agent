@@ -605,6 +605,47 @@ body {
   color: var(--color-text-muted);
 }
 
+.secret-input-wrap {
+  position: relative;
+}
+
+.secret-input-wrap input {
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 48px;
+}
+
+.secret-reveal-btn {
+  position: absolute;
+  top: 50%;
+  right: var(--spacing-sm);
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.secret-reveal-btn:hover,
+.secret-reveal-btn:active {
+  background: var(--color-bg-overlay);
+  color: var(--color-primary);
+}
+
+.secret-reveal-btn svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
 .llm-field textarea {
   resize: vertical;
   min-height: 100px;

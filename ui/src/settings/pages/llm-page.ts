@@ -8,6 +8,7 @@ import type {
   PageEditingData,
   PageEventCallback,
 } from "../types.js";
+import { bindPressToRevealSecret } from "../components/press-to-reveal-secret.js";
 
 /**
  * LLM 配置页面管理器（纯视图组件）
@@ -36,6 +37,7 @@ export class LlmPage implements ISettingsPage {
   constructor(
     baseUrlInput: HTMLInputElement,
     apiKeyInput: HTMLInputElement,
+    apiKeyRevealButton: HTMLButtonElement,
     modelNameInput: HTMLInputElement,
     temperatureInput: HTMLInputElement,
     systemPromptInput: HTMLTextAreaElement,
@@ -49,6 +51,7 @@ export class LlmPage implements ISettingsPage {
   ) {
     this.baseUrlInput = baseUrlInput;
     this.apiKeyInput = apiKeyInput;
+    bindPressToRevealSecret(this.apiKeyInput, apiKeyRevealButton);
     this.modelNameInput = modelNameInput;
     this.temperatureInput = temperatureInput;
     this.systemPromptInput = systemPromptInput;

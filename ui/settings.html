@@ -80,10 +80,24 @@
                 <span>URL</span>
                 <input id="llm-base-url" type="text" placeholder="请输入模型服务 URL" />
               </label>
-              <label class="llm-field">
-                <span>API Key</span>
-                <input id="llm-api-key" type="text" placeholder="请输入 API Key" />
-              </label>
+              <div class="llm-field">
+                <label for="llm-api-key">API Key</label>
+                <div class="secret-input-wrap">
+                  <input id="llm-api-key" name="openai_api_key" type="password" autocomplete="off" placeholder="请输入 API Key" />
+                  <button
+                    id="llm-api-key-reveal"
+                    class="secret-reveal-btn"
+                    type="button"
+                    aria-label="按住显示 API Key"
+                    title="按住显示 API Key"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+                      <circle cx="12" cy="12" r="2.75"></circle>
+                    </svg>
+                  </button>
+                </div>
+              </div>
               <div class="llm-row-two">
                 <label class="llm-field llm-field-main">
                   <span>模型名称</span>

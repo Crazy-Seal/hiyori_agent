@@ -88,6 +88,7 @@ class SettingsApp {
     this.llmPage = new LlmPage(
       this.getElement("#llm-base-url"),
       this.getElement("#llm-api-key"),
+      this.getElement("#llm-api-key-reveal"),
       this.getElement("#llm-model-name"),
       this.getElement("#llm-temperature"),
       this.getElement("#llm-system-prompt"),
