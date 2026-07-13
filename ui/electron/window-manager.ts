@@ -4,7 +4,7 @@
 
 import { app, BrowserWindow, screen } from "electron";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   WINDOW_WIDTH,
@@ -12,9 +12,38 @@ import {
   SETTINGS_WIDTH,
   SETTINGS_HEIGHT,
 } from "./config.js";
+import {
+  createTrustedRendererPolicy,
+  describeRendererUrl,
+  isTrustedRendererUrl,
+} from "./renderer-security.js";
+import { installNavigationGuards } from "./navigation-guards.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const productionIndexPath = path.resolve(__dirname, "../../dist/index.html");
+const productionSettingsPath = path.resolve(__dirname, "../../dist/settings.html");
+const rendererPolicy = createTrustedRendererPolicy({
+  devServerUrl: process.env.VITE_DEV_SERVER_URL,
+  productionEntryUrls: [
+    pathToFileURL(productionIndexPath).href,
+    pathToFileURL(productionSettingsPath).href,
+  ],
+});
+
+export const getTrustedRendererPolicy = () => rendererPolicy;
+
+const logBlockedNavigation = (kind: string, targetUrl: string): void => {
+  console.warn(`[Security] 拒绝窗口${kind}: target=${describeRendererUrl(targetUrl)}`);
+};
+
+const protectApplicationWindow = (win: BrowserWindow): void => {
+  installNavigationGuards(
+    win.webContents,
+    (targetUrl) => isTrustedRendererUrl(targetUrl, rendererPolicy),
+    logBlockedNavigation
+  );
+};
 
 /**
  * 主窗口引用
@@ -86,19 +115,19 @@ export const createMainWindow = (): BrowserWindow => {
       nodeIntegration: false,
     },
   });
+  protectApplicationWindow(win);
 
   win.setAlwaysOnTop(true, "screen-saver");
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   win.setIgnoreMouseEvents(true, { forward: true });
   mainWindow = win;
 
-  const devServerUrl = process.env.VITE_DEV_SERVER_URL;
-  if (devServerUrl) {
-    win.loadURL(devServerUrl);
+  if (rendererPolicy.mode === "development") {
+    win.loadURL(rendererPolicy.origin);
     // 开发模式下打开开发者工具
     win.webContents.openDevTools({ mode: "detach" });
   } else {
-    win.loadFile(path.resolve(__dirname, "../../dist/index.html"));
+    win.loadFile(productionIndexPath);
   }
 
   return win;
@@ -136,12 +165,12 @@ export const openSettingsWindow = (): void => {
       nodeIntegration: false,
     },
   });
+  protectApplicationWindow(win);
 
-  const devServerUrl = process.env.VITE_DEV_SERVER_URL;
-  if (devServerUrl) {
-    win.loadURL(`${devServerUrl}/settings.html`);
+  if (rendererPolicy.mode === "development") {
+    win.loadURL(`${rendererPolicy.origin}/settings.html`);
   } else {
-    win.loadFile(path.resolve(__dirname, "../../dist/settings.html"));
+    win.loadFile(productionSettingsPath);
   }
 
   win.once("ready-to-show", () => {
@@ -271,7 +300,13 @@ export const openImagePreviewWindow = (imageSrc: string): void => {
     </html>
   `;
 
-  win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+  const previewUrl = `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`;
+  installNavigationGuards(
+    win.webContents,
+    (targetUrl) => targetUrl === previewUrl,
+    logBlockedNavigation
+  );
+  win.loadURL(previewUrl);
 
   win.once("ready-to-show", () => {
     win.show();

@@ -12,6 +12,7 @@ import { ToolsPage } from "./pages/tools-page.js";
 import { PluginsPage } from "./pages/plugins-page.js";
 import { ContextStrategyPage } from "./pages/context-strategy-page.js";
 import { MultimodalPage } from "./pages/multimodal-page.js";
+import { authorizeBaseUrlChange } from "./url-security.js";
 import { MotionPage } from "./pages/motion-page.js";
 import type {
   ChatSettingsState,
@@ -62,7 +63,9 @@ class SettingsApp {
     this.confirmDialog = new ConfirmDialog(
       this.getElement("#delete-confirm-dialog"),
       this.getElement("#delete-confirm-cancel"),
-      this.getElement("#delete-confirm-ok")
+      this.getElement("#delete-confirm-ok"),
+      this.getElement("#delete-confirm-title"),
+      this.getElement("#delete-confirm-message")
     );
 
     // 初始化模型管理页面
@@ -379,7 +382,10 @@ class SettingsApp {
 
     try {
       if (pageName === "llm" && editingData.llm) {
-        await this.saveLlmSettings(editingData.llm);
+        const saved = await this.saveLlmSettings(editingData.llm);
+        if (!saved) {
+          return;
+        }
       } else if (pageName === "motion" && editingData.motion) {
         await this.saveMotionSettings(editingData.motion);
       } else if (pageName === "tools" && editingData.tools) {
@@ -402,9 +408,24 @@ class SettingsApp {
   /**
    * 保存 LLM 设置
    */
-  private async saveLlmSettings(llmData: NonNullable<EditingState["llm"]>): Promise<void> {
+  private async saveLlmSettings(llmData: NonNullable<EditingState["llm"]>): Promise<boolean> {
     if (!this.savedState) {
-      return;
+      return false;
+    }
+
+    const shouldSave = await authorizeBaseUrlChange({
+      previousUrl: this.savedState.openai_base_url,
+      nextUrl: llmData.openai_base_url,
+      confirmInsecure: (url) => this.confirmDialog.open({
+        title: "未加密连接警告",
+        message: `API Key 将通过未加密 HTTP 发送到 ${url}。仅在你信任目标服务器和当前网络时继续。`,
+        confirmText: "仍然保存",
+        cancelText: "取消",
+        variant: "warning",
+      }),
+    });
+    if (!shouldSave) {
+      return false;
     }
 
     // 构建系统提示词
@@ -428,6 +449,7 @@ class SettingsApp {
 
     await window.desktopPetApi.updateChatSettings(newState);
     this.savedState = newState;
+    return true;
   }
 
   /**

@@ -2,7 +2,7 @@
  * IPC 处理器注册
  */
 
-import { ipcMain, BrowserWindow, dialog, net, desktopCapturer, screen, clipboard, type IpcMainInvokeEvent } from "electron";
+import { BrowserWindow, dialog, net, desktopCapturer, screen, clipboard, type IpcMainInvokeEvent } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -45,7 +45,8 @@ import {
   fetchAvailableTools,
   fetchAvailablePlugins,
 } from "./chat-settings.js";
-import { getMainWindow, getSettingsWindow, openSettingsWindow, openImagePreviewWindow } from "./window-manager.js";
+import { getMainWindow, getSettingsWindow, getTrustedRendererPolicy, openSettingsWindow, openImagePreviewWindow } from "./window-manager.js";
+import { createTrustedIpcRegistrar } from "./ipc-security.js";
 import { resolveScreenActionPoint } from "./screen-action-coordinates.js";
 import { pasteScreenActionText } from "./screen-action-input.js";
 
@@ -199,8 +200,9 @@ const performScreenAction = async (payload: ScreenActionRequest): Promise<Screen
  * 注册 IPC 处理器
  */
 export const registerIpcHandlers = (): void => {
+  const trustedIpc = createTrustedIpcRegistrar(getTrustedRendererPolicy());
   // 鼠标穿透控制
-  ipcMain.on("desktop-pet:set-mouse-passthrough", (event, enabled: boolean) => {
+  trustedIpc.on("desktop-pet:set-mouse-passthrough", (event, enabled: boolean) => {
     const win = BrowserWindow.fromWebContents(event.sender) ?? getMainWindow();
     if (!win) {
       return;
@@ -210,7 +212,7 @@ export const registerIpcHandlers = (): void => {
   });
 
   // 指针交互控制
-  ipcMain.on("desktop-pet:set-pointer-interactive", (event, enabled: boolean) => {
+  trustedIpc.on("desktop-pet:set-pointer-interactive", (event, enabled: boolean) => {
     const win = BrowserWindow.fromWebContents(event.sender) ?? getMainWindow();
     if (!win) {
       return;
@@ -220,7 +222,7 @@ export const registerIpcHandlers = (): void => {
   });
 
   // 获取当前激活的模型
-  ipcMain.handle("desktop-pet:get-active-model", () => {
+  trustedIpc.handle("desktop-pet:get-active-model", () => {
     const active = getActiveModelRecord();
     return {
       id: active.id,
@@ -237,7 +239,7 @@ export const registerIpcHandlers = (): void => {
   });
 
   // 获取模型配置
-  ipcMain.handle("desktop-pet:get-model-config", () => {
+  trustedIpc.handle("desktop-pet:get-model-config", () => {
     const config = loadModelConfig();
     return {
       activeModelId: config.activeModelId,
@@ -259,13 +261,13 @@ export const registerIpcHandlers = (): void => {
   });
 
   // 获取聊天设置
-  ipcMain.handle("desktop-pet:get-chat-settings", async () => {
+  trustedIpc.handle("desktop-pet:get-chat-settings", async () => {
     const settings = await ensureChatSettingsLoaded();
     return settings;
   });
 
   // 获取最新 AI 消息
-  ipcMain.handle("desktop-pet:get-latest-ai-message", async (_event, sessionId?: string) => {
+  trustedIpc.handle("desktop-pet:get-latest-ai-message", async (_event, sessionId?: string) => {
     const resolvedSessionId = sessionId || getActiveModelRecord().sessionId;
     return {
       sessionId: resolvedSessionId,
@@ -274,7 +276,7 @@ export const registerIpcHandlers = (): void => {
   });
 
   // 获取聊天历史
-  ipcMain.handle(
+  trustedIpc.handle(
     "desktop-pet:get-chat-history",
     async (_event, sessionId: string, start: number, limit: number) => {
       return await fetchChatHistoryPageBySessionId(sessionId, start, limit);
@@ -282,14 +284,14 @@ export const registerIpcHandlers = (): void => {
   );
 
   // 获取最后 N 条聊天历史
-  ipcMain.handle(
+  trustedIpc.handle(
     "desktop-pet:get-chat-history-last-n",
     async (_event, sessionId: string, n: number) => {
       return await fetchChatHistoryLastN(sessionId, n);
     }
   );
 
-  ipcMain.handle("desktop-pet:get-pending-interrupt", async (_event, sessionId: string) => {
+  trustedIpc.handle("desktop-pet:get-pending-interrupt", async (_event, sessionId: string) => {
     const res = await net.fetch(
       `${BACKEND_BASE_URL}/agent/pending-interrupt/${encodeURIComponent(sessionId)}`
     );
@@ -304,24 +306,24 @@ export const registerIpcHandlers = (): void => {
   });
 
   // 更新聊天设置
-  ipcMain.handle("desktop-pet:update-chat-settings", async (_event, payload: ChatSettingsData) => {
+  trustedIpc.handle("desktop-pet:update-chat-settings", async (_event, payload: ChatSettingsData) => {
     return await updateChatSettings(payload);
   });
 
   // 获取可用工具
-  ipcMain.handle("desktop-pet:get-available-tools", async () => {
+  trustedIpc.handle("desktop-pet:get-available-tools", async () => {
     const tools = await fetchAvailableTools();
     return { tools };
   });
 
   // 获取可用插件
-  ipcMain.handle("desktop-pet:get-available-plugins", async () => {
+  trustedIpc.handle("desktop-pet:get-available-plugins", async () => {
     const plugins = await fetchAvailablePlugins();
     return { plugins };
   });
 
   // 更新模型变换
-  ipcMain.handle(
+  trustedIpc.handle(
     "desktop-pet:update-model-transform",
     (_event, payload: ModelTransformPayload) => {
       const config = loadModelConfig();
@@ -357,7 +359,7 @@ export const registerIpcHandlers = (): void => {
   );
 
   // 预览 Live2D 导入
-  ipcMain.handle("desktop-pet:preview-live2d-import", async () => {
+  trustedIpc.handle("desktop-pet:preview-live2d-import", async () => {
     const chooser = getSettingsWindow() ?? getMainWindow();
     if (!chooser) {
       return null;
@@ -376,7 +378,7 @@ export const registerIpcHandlers = (): void => {
   });
 
   // 导入 Live2D 模型
-  ipcMain.handle(
+  trustedIpc.handle(
     "desktop-pet:import-live2d-model",
     async (_event, payload?: { selectedPath: string; suggestedName?: string }) => {
       if (!payload?.selectedPath) {
@@ -424,7 +426,7 @@ export const registerIpcHandlers = (): void => {
   );
 
   // 删除模型
-  ipcMain.handle("desktop-pet:delete-model", async (_event, modelId: string) => {
+  trustedIpc.handle("desktop-pet:delete-model", async (_event, modelId: string) => {
     const config = loadModelConfig();
     const target = config.models.find((item) => item.id === modelId);
     if (!target) {
@@ -471,7 +473,7 @@ export const registerIpcHandlers = (): void => {
   });
 
   // 设置激活模型
-  ipcMain.handle("desktop-pet:set-active-model", (_event, modelId: string) => {
+  trustedIpc.handle("desktop-pet:set-active-model", (_event, modelId: string) => {
     const config = loadModelConfig();
     if (!config.models.some((item) => item.id === modelId)) {
       throw new Error("Model not found");
@@ -491,29 +493,29 @@ export const registerIpcHandlers = (): void => {
   });
 
   // 打开设置窗口
-  ipcMain.on("desktop-pet:open-settings-window", () => {
+  trustedIpc.on("desktop-pet:open-settings-window", () => {
     openSettingsWindow();
   });
 
   // 最小化当前窗口
-  ipcMain.on("desktop-pet:minimize-current-window", (event) => {
+  trustedIpc.on("desktop-pet:minimize-current-window", (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     win?.minimize();
   });
 
   // 关闭当前窗口
-  ipcMain.on("desktop-pet:close-current-window", (event) => {
+  trustedIpc.on("desktop-pet:close-current-window", (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     win?.close();
   });
 
   // 打开图片预览窗口
-  ipcMain.on("desktop-pet:open-image-preview", (_event, imageSrc: string) => {
+  trustedIpc.on("desktop-pet:open-image-preview", (_event, imageSrc: string) => {
     openImagePreviewWindow(imageSrc);
   });
 
   // 选择图片
-  ipcMain.handle("desktop-pet:select-images", async () => {
+  trustedIpc.handle("desktop-pet:select-images", async () => {
     const chooser = getMainWindow();
     if (!chooser) {
       return null;
@@ -550,7 +552,7 @@ export const registerIpcHandlers = (): void => {
   });
 
   // 聊天请求
-  ipcMain.handle(
+  trustedIpc.handle(
     "desktop-pet:chat",
     async (
       event,
@@ -615,7 +617,7 @@ export const registerIpcHandlers = (): void => {
   );
 
   // 截屏审批响应
-  ipcMain.handle(
+  trustedIpc.handle(
     "desktop-pet:screenshot-respond",
     async (
       event,
@@ -681,7 +683,7 @@ export const registerIpcHandlers = (): void => {
   );
 
   // 屏幕控制工具响应
-  ipcMain.handle(
+  trustedIpc.handle(
     "desktop-pet:control-screen-respond",
     async (
       event,
@@ -747,7 +749,7 @@ export const registerIpcHandlers = (): void => {
   );
 
   // 执行屏幕控制动作
-  ipcMain.handle(
+  trustedIpc.handle(
     "desktop-pet:perform-screen-action",
     async (_event, payload: ScreenActionRequest): Promise<ScreenActionResult> => {
       return await performScreenAction(payload);
@@ -755,7 +757,7 @@ export const registerIpcHandlers = (): void => {
   );
 
   // 截取屏幕
-  ipcMain.handle("desktop-pet:capture-screen", async () => {
+  trustedIpc.handle("desktop-pet:capture-screen", async () => {
     console.log("[CaptureScreen] 开始截屏...");
     try {
       const sources = await desktopCapturer.getSources({
@@ -785,7 +787,7 @@ export const registerIpcHandlers = (): void => {
   });
 
   // 获取前端设置
-  ipcMain.handle("desktop-pet:get-frontend-settings", () => {
+  trustedIpc.handle("desktop-pet:get-frontend-settings", () => {
     const defaultSettings: FrontendSettings = {
       hide_on_screenshot: true,
     };
@@ -803,7 +805,7 @@ export const registerIpcHandlers = (): void => {
   });
 
   // 更新前端设置
-  ipcMain.handle("desktop-pet:update-frontend-settings", (_event, settings: Partial<FrontendSettings>) => {
+  trustedIpc.handle("desktop-pet:update-frontend-settings", (_event, settings: Partial<FrontendSettings>) => {
     let current: FrontendSettings;
     try {
       if (fs.existsSync(FRONTEND_SETTINGS_PATH)) {
@@ -823,14 +825,14 @@ export const registerIpcHandlers = (): void => {
   });
 
   // 获取模型动作配置
-  ipcMain.handle("desktop-pet:get-motion-config", (_event, modelId: string) => {
+  trustedIpc.handle("desktop-pet:get-motion-config", (_event, modelId: string) => {
     const config = loadModelConfig();
     const model = config.models.find((item) => item.id === modelId);
     return model?.motionConfig ?? [];
   });
 
   // 更新模型动作配置
-  ipcMain.handle(
+  trustedIpc.handle(
     "desktop-pet:update-model-motion-config",
     (_event, payload: { modelId: string; motionConfig: import("./types.js").MotionConfig[] }) => {
       const config = loadModelConfig();
@@ -854,7 +856,7 @@ export const registerIpcHandlers = (): void => {
   );
 
   // 播放动作（转发到主窗口）
-  ipcMain.on("desktop-pet:play-motion", (_event, motionName: string) => {
+  trustedIpc.on("desktop-pet:play-motion", (_event, motionName: string) => {
     const mainWindow = getMainWindow();
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("desktop-pet:play-motion-request", motionName);

@@ -1067,6 +1067,16 @@ body {
   color: var(--color-on-primary);
 }
 
+.confirm-btn-warning {
+  color: #1a1400;
+  background: linear-gradient(135deg, #ffd166, #f5a623);
+  border-color: rgba(255, 209, 102, 0.8);
+}
+
+.confirm-btn-warning:hover {
+  background: linear-gradient(135deg, #ffdc85, #ffb83d);
+}
+
 /* ==================== Accessibility ==================== */
 @media (prefers-reduced-motion: reduce) {
   *,
