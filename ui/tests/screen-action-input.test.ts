@@ -200,7 +200,7 @@ test("检测到 Windows 文件剪贴板格式时拒绝粘贴以避免覆盖无�
       keyboard: keyboard.api,
       keys,
     }),
-    /unsupported clipboard format: FileNameW/,
+    /当前用户剪贴板中包含文件，无法在粘贴后可靠恢复。为避免覆盖剪贴板，已取消这次文本输入。/,
   );
 
   assert.deepEqual(clipboard.events, []);

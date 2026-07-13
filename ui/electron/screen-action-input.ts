@@ -81,10 +81,10 @@ const createClipboardSnapshot = (clipboard: TextClipboard): ClipboardSnapshot =>
   const formats = clipboard.availableFormats();
   const unsupportedFormat = formats.find((format) => !isSupportedClipboardFormat(format));
   if (unsupportedFormat) {
-    const reason = isFileClipboardFormat(unsupportedFormat)
-      ? "Windows file clipboard formats cannot be restored reliably"
-      : "clipboard format cannot be restored through clipboard.write(data)";
-    throw new Error(`unsupported clipboard format: ${unsupportedFormat}; ${reason}`);
+    const message = isFileClipboardFormat(unsupportedFormat)
+      ? "当前用户剪贴板中包含文件，无法在粘贴后可靠恢复。为避免覆盖剪贴板，已取消这次文本输入。"
+      : `当前用户剪贴板中包含当前无法可靠恢复的格式（${unsupportedFormat}），无法在粘贴后可靠恢复。为避免覆盖剪贴板，已取消这次文本输入。`;
+    throw new Error(message);
   }
 
   const data: ClipboardWriteData = {};
