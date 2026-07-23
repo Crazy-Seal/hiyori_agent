@@ -42,6 +42,50 @@ class AgentService:
             await agent.close()
         except Exception:
             logger.exception("[AgentService][session=%s] 关闭 agent 失败", session_id)
+
+    async def _resume_interrupted(
+        self,
+        session_id: str,
+        *,
+        request_id: str,
+        expected_types: frozenset[str],
+        resume_data: dict,
+        operation_name: str,
+    ) -> AsyncIterator:
+        """校验并恢复当前会话中的指定中断。"""
+        async with self._get_session_lock(session_id):
+            state_manager = StateManager(session_id)
+            try:
+                state = await state_manager.load()
+                interrupt = state.interrupt_data
+                if interrupt is None:
+                    raise ValueError("当前没有待处理的确认请求")
+                if interrupt.get("type") not in expected_types:
+                    raise ValueError("当前确认请求类型与响应接口不匹配")
+                if not request_id or interrupt.get("request_id") != request_id:
+                    raise ValueError("确认请求已过期")
+            finally:
+                await state_manager.close()
+
+            chat_settings = self.chat_settings_loader(session_id)
+            agent = self.agent_factory(chat_settings)
+            try:
+                async for event in agent.resume(resume_data):
+                    if event.type == EventType.ERROR:
+                        raise RuntimeError(event.data)
+                    if event.type == EventType.DONE:
+                        continue
+                    yield event
+            except Exception as exc:
+                logger.exception(
+                    "[AgentService][session=%s] %s失败",
+                    session_id,
+                    operation_name,
+                )
+                raise RuntimeError(f"{operation_name}失败: {exc}") from exc
+            finally:
+                await self._close(session_id, agent)
+
     async def stream_chat(self, agent_input: AgentInput, session_id: str = "default") -> AsyncIterator:
         async with self._get_session_lock(session_id):
             chat_settings = self.chat_settings_loader(session_id)
@@ -67,6 +111,8 @@ class AgentService:
     async def resume_after_screenshot(
         self,
         session_id: str,
+        *,
+        request_id: str,
         approved: bool,
         screenshot_data: str | None = None,
         width: int | None = None,
@@ -80,25 +126,20 @@ class AgentService:
         if height is not None:
             resume_data["height"] = height
 
-        async with self._get_session_lock(session_id):
-            chat_settings = self.chat_settings_loader(session_id)
-            agent = self.agent_factory(chat_settings)
-            try:
-                async for event in agent.resume(resume_data):
-                    if event.type == EventType.ERROR:
-                        raise RuntimeError(event.data)
-                    if event.type == EventType.DONE:
-                        continue
-                    yield event
-            except Exception as e:
-                logger.exception("[AgentService][session=%s] 恢复对话失败", session_id)
-                raise RuntimeError(f"恢复对话失败: {e}") from e
-            finally:
-                await self._close(session_id, agent)
+        async for event in self._resume_interrupted(
+            session_id,
+            request_id=request_id,
+            expected_types=frozenset({"screenshot_request"}),
+            resume_data=resume_data,
+            operation_name="恢复截屏工具",
+        ):
+            yield event
 
     async def resume_after_control_screen(
         self,
         session_id: str,
+        *,
+        request_id: str,
         approved: bool | None = None,
         screenshot_data: str | None = None,
         width: int | None = None,
@@ -120,21 +161,17 @@ class AgentService:
         if error:
             resume_data["error"] = error
 
-        async with self._get_session_lock(session_id):
-            chat_settings = self.chat_settings_loader(session_id)
-            agent = self.agent_factory(chat_settings)
-            try:
-                async for event in agent.resume(resume_data):
-                    if event.type == EventType.ERROR:
-                        raise RuntimeError(event.data)
-                    if event.type == EventType.DONE:
-                        continue
-                    yield event
-            except Exception as e:
-                logger.exception("[AgentService][session=%s] 恢复对话失败", session_id)
-                raise RuntimeError(f"恢复对话失败: {e}") from e
-            finally:
-                await self._close(session_id, agent)
+        async for event in self._resume_interrupted(
+            session_id,
+            request_id=request_id,
+            expected_types=frozenset({
+                "control_screen_capture_request",
+                "control_screen_execute_request",
+            }),
+            resume_data=resume_data,
+            operation_name="恢复屏幕控制工具",
+        ):
+            yield event
 
     async def get_pending_interrupt(self, session_id: str) -> dict:
         """读取可跨前端重启恢复的中断信息。"""

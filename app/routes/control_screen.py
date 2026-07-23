@@ -4,7 +4,7 @@ import logging
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from app.dependencies import get_agent_service
 from app.services.agent_service import AgentService
@@ -20,6 +20,7 @@ class ControlScreenResponseRequest(BaseModel):
     """前端响应屏幕控制中断的请求体。"""
 
     session_id: str
+    request_id: str = Field(min_length=1)
     approved: bool | None = None
     screenshot_data: str | None = None
     width: int | None = None
@@ -53,6 +54,7 @@ async def respond_to_control_screen(
         try:
             async for event in agent_service.resume_after_control_screen(
                 payload.session_id,
+                request_id=payload.request_id,
                 approved=payload.approved,
                 screenshot_data=payload.screenshot_data,
                 width=payload.width,

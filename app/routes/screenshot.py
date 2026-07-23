@@ -3,7 +3,7 @@ import logging
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from app.dependencies import get_agent_service
 from app.services.agent_service import AgentService
@@ -18,6 +18,7 @@ router = APIRouter(prefix="/screenshot", tags=["screenshot"])
 class ScreenshotResponseRequest(BaseModel):
     """用户响应截屏请求的请求体"""
     session_id: str
+    request_id: str = Field(min_length=1)
     approved: bool
     screenshot_data: str | None = None  # 完整 data URL 格式，如 data:image/png;base64,xxx
     width: int | None = None            # 截屏宽度（像素）
@@ -53,10 +54,11 @@ async def respond_to_screenshot(
         try:
             async for event in agent_service.resume_after_screenshot(
                 payload.session_id,
-                payload.approved,
-                payload.screenshot_data,
-                payload.width,
-                payload.height
+                request_id=payload.request_id,
+                approved=payload.approved,
+                screenshot_data=payload.screenshot_data,
+                width=payload.width,
+                height=payload.height,
             ):
                 formatted = formatter.format(event)
                 if formatted:

@@ -5,6 +5,7 @@
 import { BubbleManager } from "./bubble.js";
 import { ChatHistoryManager } from "./chat-history-manager.js";
 import { ScreenshotConfirmDialog } from "./screenshot-confirm-dialog.js";
+import { buildInterruptResponseMeta } from "./interrupt-response.js";
 import { ToolCallToastManager } from "./tool-call-toast.js";
 import type { ChatInterruptPayload, ChatResult, ControlScreenActionData } from "../types.js";
 
@@ -175,36 +176,37 @@ export class ChatClient {
 
   private async respondToInterrupt(
     interruptData: ChatInterruptPayload,
-    requestId: string
+    streamRequestId: string
   ): Promise<ChatResult | undefined> {
     const interruptValue = interruptData.value;
+    const responseMeta = buildInterruptResponseMeta(interruptValue, streamRequestId);
     if (interruptValue.type === "screenshot_request") {
       const approved = await this.screenshotConfirmDialog.open(
         interruptValue.message || "Agent 请求截取屏幕，是否允许？"
       );
       if (!approved) {
-        return await window.desktopPetApi.screenshotRespond?.(
-          this.sessionId,
-          false,
-          requestId
-        );
+        return await window.desktopPetApi.screenshotRespond?.({
+          sessionId: this.sessionId,
+          ...responseMeta,
+          approved: false,
+        });
       }
       const screenshot = await this.captureScreenWithUserPreference();
-      return await window.desktopPetApi.screenshotRespond?.(
-        this.sessionId,
-        true,
-        requestId,
-        screenshot?.dataUrl,
-        screenshot?.width,
-        screenshot?.height
-      );
+      return await window.desktopPetApi.screenshotRespond?.({
+        sessionId: this.sessionId,
+        ...responseMeta,
+        approved: true,
+        screenshotData: screenshot?.dataUrl,
+        width: screenshot?.width,
+        height: screenshot?.height,
+      });
     }
 
     if (interruptValue.type === "control_screen_capture_request") {
       const screenshot = await this.captureScreenWithUserPreference();
       return await window.desktopPetApi.controlScreenRespond?.({
         sessionId: this.sessionId,
-        requestId,
+        ...responseMeta,
         screenshotData: screenshot?.dataUrl,
         width: screenshot?.width,
         height: screenshot?.height,
@@ -218,14 +220,14 @@ export class ChatClient {
     if (!approved) {
       return await window.desktopPetApi.controlScreenRespond?.({
         sessionId: this.sessionId,
-        requestId,
+        ...responseMeta,
         approved: false,
       });
     }
     const actionResult = await this.performControlScreenAction(action);
     return await window.desktopPetApi.controlScreenRespond?.({
       sessionId: this.sessionId,
-      requestId,
+      ...responseMeta,
       approved: true,
       executed: actionResult.executed,
       error: actionResult.error,

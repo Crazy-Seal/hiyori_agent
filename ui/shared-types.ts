@@ -193,6 +193,28 @@ export type PendingInterruptResult =
 
 export type ScreenshotInterruptPayload = ChatInterruptPayload;
 
+export type ScreenshotResponsePayload = {
+  sessionId: string;
+  requestId: string;
+  streamRequestId?: string;
+  approved: boolean;
+  screenshotData?: string;
+  width?: number;
+  height?: number;
+};
+
+export type ControlScreenResponsePayload = {
+  sessionId: string;
+  requestId: string;
+  streamRequestId?: string;
+  approved?: boolean;
+  screenshotData?: string;
+  width?: number;
+  height?: number;
+  executed?: boolean;
+  error?: string;
+};
+
 export type ChatResult =
   | { response: string; model: string; interrupted?: false }
   | {
@@ -276,24 +298,8 @@ export interface DesktopPetApi {
   onModelChanged?: (callback: (model: ModelInfo) => void) => () => void;
   onModelTransformChanged?: (callback: (data: ModelTransformData) => void) => () => void;
   onChatChunk: (callback: (data: ChatChunkData) => void) => () => void;
-  screenshotRespond?: (
-    sessionId: string,
-    approved: boolean,
-    requestId?: string,
-    screenshotData?: string,
-    width?: number,
-    height?: number
-  ) => Promise<ChatResult>;
-  controlScreenRespond?: (payload: {
-    sessionId: string;
-    requestId?: string;
-    approved?: boolean;
-    screenshotData?: string;
-    width?: number;
-    height?: number;
-    executed?: boolean;
-    error?: string;
-  }) => Promise<ChatResult>;
+  screenshotRespond?: (payload: ScreenshotResponsePayload) => Promise<ChatResult>;
+  controlScreenRespond?: (payload: ControlScreenResponsePayload) => Promise<ChatResult>;
   captureScreen?: () => Promise<{ dataUrl: string; width: number; height: number }>;
   performScreenAction?: (payload: ScreenActionRequest) => Promise<ScreenActionResult>;
   onChatInterrupt?: (callback: (data: ChatInterruptPayload) => void) => () => void;

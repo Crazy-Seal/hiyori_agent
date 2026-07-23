@@ -9,7 +9,7 @@ from app.agent.context import BasePlugin, BaseTool, HookContext, PluginHook, Too
 from app.agent.context_strategy import ContextStrategyConfig, ContextStrategyManager
 from app.agent.core.event_router import EventType
 from app.agent.core.pipeline import ExecutionPipeline
-from app.agent.core.state_manager import StateManager
+from app.agent.core.state_manager import CheckpointType, StateManager
 from app.agent.message import ToolCall
 from app.agent.models.llm_client import StreamChunk
 from app.agent.state import AgentState
@@ -50,6 +50,22 @@ class StepTool(BaseTool):
         if label == self.crash_on:
             raise asyncio.CancelledError()
         return ToolResult.success(f"完成 {label}")
+
+
+class ImageStepTool(BaseTool):
+    """返回图片的测试工具。"""
+
+    name = "image_step"
+    description = "执行返回图片的测试步骤"
+    parameters_schema = {"type": "object", "properties": {"label": {"type": "string"}}}
+    is_resumable = True
+
+    async def execute(self, args: dict, context: ToolContext) -> ToolResult:
+        label = args.get("label", "")
+        return ToolResult.success(
+            f"完成 {label}",
+            image_urls=[f"data:image/png;base64,{label}"],
+        )
 
 
 class ErrorTool(BaseTool):
@@ -439,11 +455,135 @@ def test_checkpoint_failure_keeps_tool_marked_pending() -> None:
     asyncio.run(scenario())
 
 
+def test_last_tool_checkpoint_flushes_all_batch_images(tmp_path: Path) -> None:
+    """最后一个工具的 checkpoint 必须同时提交整批延迟图片。"""
+
+    async def scenario() -> list[AgentState]:
+        agent = await make_agent(
+            tmp_path / "checkpoints.sqlite3",
+            [[
+                tool_call("call-a", name="image_step", label="A"),
+                tool_call("call-b", name="image_step", label="B"),
+            ]],
+            ImageStepTool(),
+        )
+        state = AgentState.create_new("checkpoint-test")
+        state.add_user_message("执行两个图片工具")
+        snapshots: list[AgentState] = []
+
+        async def checkpoint(
+            current: AgentState,
+            *,
+            checkpoint_type: CheckpointType,
+        ) -> int:
+            assert checkpoint_type == "intermediate"
+            snapshot = AgentState.from_checkpoint(deepcopy(current.to_checkpoint()))
+            snapshots.append(snapshot)
+            if not snapshot.pending_tool_calls and any(
+                item.get("role") == "tool" for item in snapshot.messages
+            ):
+                raise asyncio.CancelledError()
+            return len(snapshots)
+
+        try:
+            with pytest.raises(asyncio.CancelledError):
+                await drain(agent.pipeline.execute(state, checkpoint=checkpoint))
+        finally:
+            await agent.close()
+        return snapshots
+
+    snapshots = asyncio.run(scenario())
+    first_result = snapshots[-2]
+    assert [item["id"] for item in first_result.pending_tool_calls] == ["call-b"]
+    assert len(first_result.deferred_tool_images) == 1
+    assert [item["role"] for item in first_result.messages[-2:]] == ["assistant", "tool"]
+
+    completed_batch = snapshots[-1]
+    assert completed_batch.pending_tool_calls == []
+    assert completed_batch.deferred_tool_images == []
+    assert [item["role"] for item in completed_batch.messages[-5:]] == [
+        "assistant",
+        "tool",
+        "tool",
+        "user",
+        "user",
+    ]
+
+
+def test_resumed_last_tool_checkpoint_flushes_deferred_images(tmp_path: Path) -> None:
+    """审批恢复的最后一个工具必须与已有延迟图片一起完整提交。"""
+
+    async def scenario() -> AgentState:
+        agent = await make_agent(
+            tmp_path / "checkpoints.sqlite3",
+            [],
+            ImageStepTool(),
+        )
+        state = AgentState.create_new("checkpoint-test")
+        state.add_tool_message("完成 A", "image_step", "call-a")
+        state.deferred_tool_images.append({
+            "tool_call_id": "call-a",
+            "tool_name": "image_step",
+            "image_message_name": "mcp_tool_image",
+            "image_urls": ["data:image/png;base64,A"],
+        })
+        state.set_interrupt({
+            "type": "mcp_tool_approval_request",
+            "request_id": "request-b",
+            "tool_name": "image_step",
+            "tool_call_id": "call-b",
+            "tool_args": {"label": "B"},
+            "resume_state": {},
+        })
+        snapshots: list[AgentState] = []
+
+        async def checkpoint(
+            current: AgentState,
+            *,
+            checkpoint_type: CheckpointType,
+        ) -> int:
+            assert checkpoint_type == "intermediate"
+            snapshot = AgentState.from_checkpoint(deepcopy(current.to_checkpoint()))
+            snapshots.append(snapshot)
+            if not snapshot.pending_tool_calls:
+                raise asyncio.CancelledError()
+            return len(snapshots)
+
+        try:
+            with pytest.raises(asyncio.CancelledError):
+                await drain(agent.pipeline.resume_tools(
+                    state,
+                    {"approved": True},
+                    checkpoint=checkpoint,
+                ))
+        finally:
+            await agent.close()
+        return snapshots[-1]
+
+    completed_batch = asyncio.run(scenario())
+    assert completed_batch.pending_tool_calls == []
+    assert completed_batch.deferred_tool_images == []
+    assert [item["role"] for item in completed_batch.messages] == [
+        "tool",
+        "tool",
+        "user",
+        "user",
+    ]
+
+
 def test_interrupt_recovers_across_fresh_agents_and_repeated_response_fails(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
     async def scenario() -> None:
         db_path = tmp_path / "checkpoints.sqlite3"
+        from app.services import agent_service as agent_service_module
+
+        monkeypatch.setattr(
+            agent_service_module,
+            "StateManager",
+            lambda session_id: StateManager(session_id, db_path=str(db_path)),
+        )
         resumed_calls: list[bool] = []
         all_agents = [
             await make_agent(db_path, [[tool_call("shot-1", name="screenshot")]], ResumableScreenshotTool(resumed_calls)),
@@ -471,6 +611,7 @@ def test_interrupt_recovers_across_fresh_agents_and_repeated_response_fails(
         try:
             first_interrupt = await manager.load()
             assert first_interrupt.is_interrupted()
+            first_request_id = first_interrupt.interrupt_data["request_id"]
             assert first_interrupt.summary_counter == 1
             assert await checkpoint_types(manager) == ["intermediate"]
         finally:
@@ -479,11 +620,28 @@ def test_interrupt_recovers_across_fresh_agents_and_repeated_response_fails(
         assert all_agents[0].llm_client.closed is True
 
         # 即使创建新的 Agent，请求也能从 checkpoint 恢复，并再次产生持久化中断。
-        second_events = await drain(service.resume_after_screenshot("checkpoint-test", True, "image"))
+        second_events = await drain(service.resume_after_screenshot(
+            "checkpoint-test",
+            request_id=first_request_id,
+            approved=True,
+            screenshot_data="image",
+        ))
         assert second_events[-1].type == EventType.INTERRUPT
         assert all_agents[1].llm_client.closed is True
 
-        third_events = await drain(service.resume_after_screenshot("checkpoint-test", False))
+        manager = StateManager("checkpoint-test", db_path=str(db_path))
+        try:
+            second_interrupt = await manager.load()
+            second_request_id = second_interrupt.interrupt_data["request_id"]
+            assert second_request_id != first_request_id
+        finally:
+            await manager.close()
+
+        third_events = await drain(service.resume_after_screenshot(
+            "checkpoint-test",
+            request_id=second_request_id,
+            approved=False,
+        ))
         assert any(event.type == EventType.TEXT_CHUNK for event in third_events)
         assert resumed_calls == [True, False]
         assert all_agents[2].llm_client.closed is True
@@ -496,10 +654,16 @@ def test_interrupt_recovers_across_fresh_agents_and_repeated_response_fails(
             await manager.close()
 
         # 中断已消费，重复响应不得再次执行工具。
-        with pytest.raises(RuntimeError, match="没有中断状态需要恢复"):
-            await drain(service.resume_after_screenshot("checkpoint-test", False))
+        with pytest.raises(ValueError, match="没有待处理的确认请求"):
+            await drain(service.resume_after_screenshot(
+                "checkpoint-test",
+                request_id=second_request_id,
+                approved=False,
+            ))
         assert resumed_calls == [True, False]
-        assert all_agents[3].llm_client.closed is True
+        assert agents == [all_agents[3]]
+        assert all_agents[3].llm_client.closed is False
+        await all_agents[3].close()
 
     asyncio.run(scenario())
 

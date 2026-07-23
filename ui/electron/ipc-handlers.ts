@@ -50,6 +50,11 @@ import { getMainWindow, getSettingsWindow, getTrustedRendererPolicy, openSetting
 import { createTrustedIpcRegistrar } from "./ipc-security.js";
 import { resolveScreenActionPoint } from "./screen-action-coordinates.js";
 import { pasteScreenActionText } from "./screen-action-input.js";
+import { buildBackendInterruptIdentity } from "./interrupt-response.js";
+import type {
+  ControlScreenResponsePayload,
+  ScreenshotResponsePayload,
+} from "../shared-types.js";
 
 /**
  * 通知模型已更改（同时通知主窗口和设置窗口）
@@ -622,16 +627,9 @@ export const registerIpcHandlers = (): void => {
     "desktop-pet:screenshot-respond",
     async (
       event,
-      payload: {
-        sessionId: string;
-        approved: boolean;
-        requestId?: string;
-        screenshotData?: string;
-        width?: number;
-        height?: number;
-      }
+      payload: ScreenshotResponsePayload
     ) => {
-      const { sessionId, approved, requestId, screenshotData, width, height } = payload;
+      const { approved, screenshotData, width, height } = payload;
 
       const abortController = new AbortController();
       const timeoutTimer = setTimeout(() => {
@@ -641,7 +639,7 @@ export const registerIpcHandlers = (): void => {
       try {
         // 构建请求体
         const requestBody: Record<string, unknown> = {
-          session_id: sessionId,
+          ...buildBackendInterruptIdentity(payload),
           approved,
         };
         // 如果允许且有截图数据，添加到请求体
@@ -668,7 +666,7 @@ export const registerIpcHandlers = (): void => {
         return await streamBackendResponse(
           event,
           res,
-          requestId,
+          payload.streamRequestId,
           "截屏响应流返回错误事件",
         );
       } catch (error) {
@@ -688,18 +686,9 @@ export const registerIpcHandlers = (): void => {
     "desktop-pet:control-screen-respond",
     async (
       event,
-      payload: {
-        sessionId: string;
-        approved?: boolean;
-        requestId?: string;
-        screenshotData?: string;
-        width?: number;
-        height?: number;
-        executed?: boolean;
-        error?: string;
-      }
+      payload: ControlScreenResponsePayload
     ) => {
-      const { sessionId, approved, requestId, screenshotData, width, height, executed, error } = payload;
+      const { approved, screenshotData, width, height, executed, error } = payload;
 
       const abortController = new AbortController();
       const timeoutTimer = setTimeout(() => {
@@ -708,7 +697,7 @@ export const registerIpcHandlers = (): void => {
 
       try {
         const requestBody: Record<string, unknown> = {
-          session_id: sessionId,
+          ...buildBackendInterruptIdentity(payload),
         };
         if (approved !== undefined) requestBody.approved = approved;
         if (screenshotData) requestBody.screenshot_data = screenshotData;
@@ -734,7 +723,7 @@ export const registerIpcHandlers = (): void => {
         return await streamBackendResponse(
           event,
           res,
-          requestId,
+          payload.streamRequestId,
           "屏幕控制响应流返回错误事件"
         );
       } catch (error) {

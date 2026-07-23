@@ -31,6 +31,7 @@ class AgentState(BaseModel):
     # ==================== 工具执行上下文 ====================
     pending_tool_calls: list[dict] = Field(default_factory=list)  # 待执行的工具调用
     tool_results: list[dict] = Field(default_factory=list)        # 工具执行结果
+    deferred_tool_images: list[dict] = Field(default_factory=list)  # 当前工具批次延迟注入的图片
 
     # ==================== 中断恢复 ====================
     interrupt_data: dict | None = None              # 中断数据

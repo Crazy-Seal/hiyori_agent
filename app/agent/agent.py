@@ -249,6 +249,7 @@ class Agent:
 
             state.clear_interrupt()
             state.clear_pending_tool_calls()
+            self.pipeline._flush_deferred_tool_images(state)
             await self.state_manager.save(state, checkpoint_type="completed")
 
         # 上次普通工具链若异常中止，为未完成调用补齐结果，避免自动重试副作用。
@@ -261,6 +262,7 @@ class Agent:
                     tool_call_id=tool_call.id,
                 )
             state.clear_pending_tool_calls()
+            self.pipeline._flush_deferred_tool_images(state)
             await self.state_manager.save(state, checkpoint_type="completed")
 
         # 每轮起始重置一次性的记忆上下文（由 MemoryPlugin 在 BEFORE_LLM 重新注入）

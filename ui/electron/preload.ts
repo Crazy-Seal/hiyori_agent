@@ -67,15 +67,8 @@ const desktopPetApi: DesktopPetApi = {
     subscribe<ModelTransformData>("desktop-pet:model-transform-changed", listener),
   onChatChunk: (listener) =>
     subscribe<ChatChunkData>("desktop-pet:chat-chunk", listener),
-  screenshotRespond: (sessionId, approved, requestId, screenshotData, width, height) =>
-    ipcRenderer.invoke("desktop-pet:screenshot-respond", {
-      sessionId,
-      approved,
-      requestId,
-      screenshotData,
-      width,
-      height,
-    }),
+  screenshotRespond: (payload) =>
+    ipcRenderer.invoke("desktop-pet:screenshot-respond", payload),
   controlScreenRespond: (payload) =>
     ipcRenderer.invoke("desktop-pet:control-screen-respond", payload),
   captureScreen: () => ipcRenderer.invoke("desktop-pet:capture-screen"),

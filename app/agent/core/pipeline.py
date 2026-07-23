@@ -117,9 +117,12 @@ class ExecutionPipeline:
                 yield AgentEvent(EventType.INTERRUPT, result.interrupt.to_client())
                 return
 
-            self._append_tool_result(state, interrupted_call, result)
-            state.remove_pending_tool_call(interrupted_call.id)
-            await self._checkpoint(state, checkpoint)
+            await self._commit_completed_tool_call(
+                state,
+                interrupted_call,
+                result,
+                checkpoint,
+            )
 
         # 2. 执行中断时尚未轮到的剩余工具
         for i, tc_dict in enumerate(pending_actions):
@@ -133,9 +136,12 @@ class ExecutionPipeline:
                 yield AgentEvent(EventType.INTERRUPT, result.interrupt.to_client())
                 return
 
-            self._append_tool_result(state, tool_call, result)
-            state.remove_pending_tool_call(tool_call.id)
-            await self._checkpoint(state, checkpoint)
+            await self._commit_completed_tool_call(
+                state,
+                tool_call,
+                result,
+                checkpoint,
+            )
 
         # 3. 回到 LLM 循环（不重跑 ON_INVOKE）
         runtime_context = runtime_context or RuntimeContext.capture()
@@ -223,14 +229,14 @@ class ExecutionPipeline:
                     yield AgentEvent(EventType.INTERRUPT, result.interrupt.to_client())
                     return
 
-                self._append_tool_result(state, tool_call, result)
-                state.remove_pending_tool_call(tool_call.id)
-                await self._checkpoint(state, checkpoint)
+                await self._commit_completed_tool_call(
+                    state,
+                    tool_call,
+                    result,
+                    checkpoint,
+                )
 
-            # 7. 清空待处理工具，继续循环
-            state.clear_pending_tool_calls()
-
-        # 8. 最终响应提交前准备：标注图片、准备记忆快照并裁剪 checkpoint。
+        # 7. 最终响应提交前准备：标注图片、准备记忆快照并裁剪 checkpoint。
         state = await self.agent.plugin_manager.run_hooks(
             PluginHook.BEFORE_RESPONSE_COMMIT,
             state,
@@ -347,13 +353,37 @@ class ExecutionPipeline:
 
         return result
 
+    async def _commit_completed_tool_call(
+        self,
+        state: AgentState,
+        tool_call: ToolCall,
+        result: ToolResult,
+        checkpoint: CheckpointCallback | None,
+    ) -> None:
+        """完整提交一个已经执行完成的工具调用。
+
+        工具消息、pending 状态和批次末尾图片会在同一个 checkpoint 前同步
+        更新，避免持久化“工具批次已结束但图片尚未注入”的中间状态。
+
+        Args:
+            state: 当前 Agent 状态。
+            tool_call: 已执行完成的工具调用。
+            result: 工具执行结果。
+            checkpoint: intermediate checkpoint 持久化回调。
+        """
+        self._append_tool_result(state, tool_call, result)
+        state.remove_pending_tool_call(tool_call.id)
+        if not state.pending_tool_calls:
+            self._flush_deferred_tool_images(state)
+        await self._checkpoint(state, checkpoint)
+
     def _append_tool_result(
         self,
         state: AgentState,
         tool_call: ToolCall,
         result: ToolResult,
     ) -> None:
-        """把工具结果落入状态；若工具产出图片，注入为用户消息让模型看见。"""
+        """追加工具结果槽位，并把图片暂存到当前批次的延迟队列。"""
         if result.state_updates:
             state.update_extra(result.state_updates)
 
@@ -363,14 +393,37 @@ class ExecutionPipeline:
             tool_call_id=tool_call.id,
         )
 
-        if result.image_url:
-            # 图片以 user 消息进入，工具槽位只留文本
+        image_urls = list(result.image_urls)
+        if result.image_url and result.image_url not in image_urls:
+            image_urls.insert(0, result.image_url)
+        if image_urls:
+            state.deferred_tool_images.append({
+                "tool_call_id": tool_call.id,
+                "tool_name": tool_call.name,
+                "image_message_name": result.image_message_name or SCREENSHOT_MESSAGE_NAME,
+                "image_urls": image_urls,
+            })
+
+    @staticmethod
+    def _flush_deferred_tool_images(state: AgentState) -> None:
+        """在整批 tool 消息补齐后统一注入工具图片。
+
+        Args:
+            state: 保存消息和延迟图片队列的 Agent 状态。
+        """
+        deferred = list(state.deferred_tool_images)
+        state.deferred_tool_images = []
+        for item in deferred:
+            image_urls = list(item.get("image_urls") or [])
+            if not image_urls:
+                continue
+            tool_name = str(item.get("tool_name") or "")
             state.add_message(Message.user_message(
                 [
-                    ContentPart.text_part("[系统消息]屏幕截图: "),
-                    ContentPart.image_part(result.image_url),
+                    ContentPart.text_part(f"[系统消息]工具 {tool_name} 返回图片: "),
+                    *(ContentPart.image_part(url) for url in image_urls),
                 ],
-                name=SCREENSHOT_MESSAGE_NAME,
+                name=str(item.get("image_message_name") or SCREENSHOT_MESSAGE_NAME),
             ))
 
     def _persist_interrupt(

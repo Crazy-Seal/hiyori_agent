@@ -96,12 +96,22 @@ class ToolResult:
     state_updates: dict = field(default_factory=dict)    # 状态更新（写入 state.extra）
     resume_state: dict = field(default_factory=dict)     # 中断前暂存、恢复执行时要用的中间态
     image_url: str | None = None                         # 工具产出的图片（注入为用户消息，让模型看见）
+    image_urls: list[str] = field(default_factory=list)  # 工具产出的多张图片
+    image_message_name: str | None = None                # 用于上下文策略区分图片来源
 
     @classmethod
     def success(cls, content: str, state_updates: dict | None = None,
-                image_url: str | None = None) -> "ToolResult":
+                image_url: str | None = None,
+                image_urls: list[str] | None = None,
+                image_message_name: str | None = None) -> "ToolResult":
         """创建成功结果"""
-        return cls(content=content, state_updates=state_updates or {}, image_url=image_url)
+        return cls(
+            content=content,
+            state_updates=state_updates or {},
+            image_url=image_url,
+            image_urls=image_urls or [],
+            image_message_name=image_message_name,
+        )
 
     @classmethod
     def error(cls, error_message: str) -> "ToolResult":
