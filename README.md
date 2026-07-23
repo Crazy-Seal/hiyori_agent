@@ -20,29 +20,31 @@ The app is built for personal desktop use. It is not a hosted service, and it do
 
 - Windows is the primary development environment.
 - Python 3.12.
-- Conda environment named `my_agent`.
+- Conda environment named `ayaya`.
 - Node.js 24.x.
 - An OpenAI-compatible chat model endpoint.
 - Optional service keys for memory embedding, web search, and vision features.
 
 ## Quick Start
 
-Start the backend first:
+Install the backend dependencies:
 
 ```powershell
-conda run -n my_agent pip install -r requirements.txt
-conda run -n my_agent uvicorn main:app --reload --reload-exclude "agent_workspace/*"
+conda run -n ayaya pip install -r requirements.txt
 ```
 
-The backend runs at `http://127.0.0.1:8000`.
-
-Then prepare and start the desktop app:
+Then install and start the desktop app:
 
 ```powershell
 cd ui
 npm install
 npm run dev
 ```
+
+Electron generates a temporary API token, starts the backend on
+`http://127.0.0.1:8000`, waits for its authenticated readiness endpoint, and
+shuts it down when the desktop app exits. Do not start a separate backend for
+the default workflow.
 
 Before the first frontend run, download the default Live2D model:
 
@@ -108,12 +110,6 @@ The desktop app is under `ui/`:
 
 ## Build
 
-Backend:
-
-```powershell
-conda run -n my_agent uvicorn main:app --reload --reload-exclude "agent_workspace/*"
-```
-
 Frontend development:
 
 ```powershell
@@ -129,7 +125,31 @@ npm run build
 npm run start
 ```
 
-If the backend is not running on `http://127.0.0.1:8000`, set `BACKEND_BASE_URL` before starting Electron.
+Both `npm run dev` and `npm run start` let Electron manage the authenticated
+backend by default. Electron discovers the `ayaya` Conda environment through
+Conda's JSON environment list, then starts that environment's Python executable
+directly; `conda run` is not kept in the long-running backend process tree.
+
+For standalone backend development, use the same temporary token in both
+terminals. Do not persist or commit this token:
+
+```powershell
+# Terminal 1
+$env:AYAYA_API_TOKEN="<temporary Base64URL token with at least 43 characters>"
+conda run -n ayaya python -B -m app.server
+
+# Terminal 2
+$env:AYAYA_API_TOKEN="<the same temporary token>"
+$env:AYAYA_MANAGE_BACKEND="false"
+cd ui
+npm run dev
+```
+
+The following environment variables are development overrides:
+
+- `AYAYA_PYTHON_EXECUTABLE`: use a specific Python executable instead of automatically discovering the Conda environment named `ayaya`.
+- `AYAYA_BACKEND_CWD`: change the working directory used when Electron starts the backend.
+- `AYAYA_BACKEND_BASE_URL`: connect Electron to a different loopback backend address; external mode still requires the matching `AYAYA_API_TOKEN`.
 
 ## Tests
 
@@ -138,7 +158,7 @@ Backend tests must use isolated test storage:
 ```powershell
 $env:AYAYA_ENV="test"
 $env:AYAYA_DATA_DIR="$env:TEMP\ayaya-test-data"
-conda run -n my_agent python -B -m pytest tests -q -p no:cacheprovider
+conda run -n ayaya python -B -m pytest tests -q -p no:cacheprovider
 ```
 
 Frontend checks:

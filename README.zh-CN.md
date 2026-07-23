@@ -20,29 +20,28 @@ Ayaya 是一个本地 AI 桌宠。它会以 Live2D 角色的形式待在桌面�
 
 - 主要开发环境是 Windows。
 - Python 3.12。
-- Conda 环境名为 `my_agent`。
+- Conda 环境名为 `ayaya`。
 - Node.js 24.x。
 - 一个 OpenAI 兼容的聊天模型接口。
 - 如果要使用长期记忆、联网搜索或图片理解，需要额外配置对应服务密钥。
 
 ## 快速开始
 
-先启动后端：
+先安装后端依赖：
 
 ```powershell
-conda run -n my_agent pip install -r requirements.txt
-conda run -n my_agent uvicorn main:app --reload --reload-exclude "agent_workspace/*"
+conda run -n ayaya pip install -r requirements.txt
 ```
 
-后端默认运行在 `http://127.0.0.1:8000`。
-
-然后启动桌面端：
+然后安装并启动桌面端：
 
 ```powershell
 cd ui
 npm install
 npm run dev
 ```
+
+Electron 会生成临时 API Token，在 `http://127.0.0.1:8000` 启动后端，等待带认证的就绪接口，并在桌面端退出时关闭后端。默认流程不要再单独启动后端。
 
 首次运行前，需要下载默认 Live2D 模型：
 
@@ -108,12 +107,6 @@ VLM_MODEL=qwen3-vl-plus
 
 ## 构建与启动
 
-后端：
-
-```powershell
-conda run -n my_agent uvicorn main:app --reload --reload-exclude "agent_workspace/*"
-```
-
 前端开发模式：
 
 ```powershell
@@ -129,7 +122,29 @@ npm run build
 npm run start
 ```
 
-如果后端不是运行在 `http://127.0.0.1:8000`，启动 Electron 前需要设置 `BACKEND_BASE_URL`。
+`npm run dev` 和 `npm run start` 默认都由 Electron 管理带认证的后端。Electron
+通过 Conda 的 JSON 环境列表查找名为 `ayaya` 的环境，然后直接启动该环境的
+Python；长期运行的后端进程树不再包含 `conda run`。
+
+如需独立调试后端，两个终端必须使用同一个临时 Token。不要持久化或提交该 Token：
+
+```powershell
+# 终端 1
+$env:AYAYA_API_TOKEN="<至少43字符的临时Base64URL Token>"
+conda run -n ayaya python -B -m app.server
+
+# 终端 2
+$env:AYAYA_API_TOKEN="<同一个临时Token>"
+$env:AYAYA_MANAGE_BACKEND="false"
+cd ui
+npm run dev
+```
+
+以下环境变量可用于开发覆盖：
+
+- `AYAYA_PYTHON_EXECUTABLE`：指定 Python 可执行文件，替代默认的 `ayaya` Conda 环境自动发现。
+- `AYAYA_BACKEND_CWD`：修改 Electron 启动后端时使用的工作目录。
+- `AYAYA_BACKEND_BASE_URL`：让 Electron 连接其他回环地址上的后端；外部后端模式仍必须提供匹配的 `AYAYA_API_TOKEN`。
 
 ## 测试
 
@@ -138,7 +153,7 @@ npm run start
 ```powershell
 $env:AYAYA_ENV="test"
 $env:AYAYA_DATA_DIR="$env:TEMP\ayaya-test-data"
-conda run -n my_agent python -B -m pytest tests -q -p no:cacheprovider
+conda run -n ayaya python -B -m pytest tests -q -p no:cacheprovider
 ```
 
 前端检查：

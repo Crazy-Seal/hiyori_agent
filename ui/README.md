@@ -31,12 +31,15 @@ npm install
 npm run dev
 ```
 
+Electron 默认自动发现名为 `ayaya` 的 Conda 环境，并直接使用其中的 Python
+启动受管后端。可通过 `AYAYA_PYTHON_EXECUTABLE` 显式覆盖解释器。
+
 默认请求后端地址：`http://127.0.0.1:8000/chat`
 
 可通过环境变量修改：
 
 ```powershell
-$env:BACKEND_BASE_URL="http://127.0.0.1:8000"
+$env:AYAYA_BACKEND_BASE_URL="http://127.0.0.1:8000"
 npm run dev
 ```
 

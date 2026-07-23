@@ -8,12 +8,12 @@ The FastAPI backend starts in `main.py`. Application code lives under `app/`: HT
 
 ## Build, Test, and Development Commands
 
-Run the backend in the `my_agent` Conda environment:
+Run the backend in the `ayaya` Conda environment:
 
 ```powershell
-conda run -n my_agent pip install -r requirements.txt
-conda run -n my_agent uvicorn main:app --reload --reload-exclude "agent_workspace/*"
-conda run -n my_agent python -B -m pytest tests -q -p no:cacheprovider
+conda run -n ayaya pip install -r requirements.txt
+conda run -n ayaya uvicorn main:app --reload --reload-exclude "agent_workspace/*"
+conda run -n ayaya python -B -m pytest tests -q -p no:cacheprovider
 ```
 
 For the desktop UI, run `npm install` from `ui/`, then use `npm run dev` for Vite and Electron development, `npm run build` for production bundles and TypeScript checks, and `npm run start` to launch the built application.
