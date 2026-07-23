@@ -36,10 +36,11 @@ app/agent/tools/tools.log
 config/chat_settings.yaml
 config/mcp_servers.yaml
 
-# ===== Claude =====
+# ===== coding agents =====
 .claude
 .agents
 CLAUDE.md
+.codex
 
 # ===== demo =====
 app/agent/memory/diary_demo.py
