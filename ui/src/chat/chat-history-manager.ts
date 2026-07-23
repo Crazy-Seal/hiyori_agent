@@ -5,7 +5,6 @@
 import type { ChatHistoryItem } from "../types.js";
 
 // 后端静态文件服务地址
-const BACKEND_BASE_URL = "http://127.0.0.1:8000";
 
 /**
  * 去掉句尾的句号
@@ -444,7 +443,7 @@ export class ChatHistoryManager {
         if (imageData.startsWith("data:image/")) {
           img.src = imageData;
         } else {
-          img.src = `${BACKEND_BASE_URL}/images/${imageData}`;
+          img.src = `ayaya-image://local/${encodeURIComponent(imageData)}`;
         }
 
         img.alt = "图片";

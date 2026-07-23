@@ -3,10 +3,10 @@
  */
 
 import {
-  BACKEND_BASE_URL,
   CHAT_HISTORY_PAGE_SIZE,
   CHAT_HISTORY_MAX_PAGES,
 } from "./config.js";
+import { backendFetch } from "./backend-client.js";
 import type { ChatSettingsData, ChatHistoryItem, ApiResponse, ToolItem, PluginItem } from "./types.js";
 import { getActiveModelRecord } from "./model-manager.js";
 
@@ -80,8 +80,8 @@ const parseJsonSafe = async <T>(res: Response): Promise<T | null> => {
 export const fetchChatSettingsBySessionId = async (
   sessionId: string
 ): Promise<ChatSettingsData> => {
-  const url = `${BACKEND_BASE_URL}/chat_settings/${encodeURIComponent(sessionId)}`;
-  const res = await fetch(url, {
+  const url = `/chat_settings/${encodeURIComponent(sessionId)}`;
+  const res = await backendFetch(url, {
     method: "GET",
   });
 
@@ -128,8 +128,8 @@ export const fetchChatHistoryPageBySessionId = async (
   start: number,
   limit: number
 ): Promise<ChatHistoryItem[]> => {
-  const url = `${BACKEND_BASE_URL}/chat_history/${encodeURIComponent(sessionId)}?start=${start}&limit=${limit}`;
-  const res = await fetch(url, {
+  const url = `/chat_history/${encodeURIComponent(sessionId)}?start=${start}&limit=${limit}`;
+  const res = await backendFetch(url, {
     method: "GET",
   });
 
@@ -159,8 +159,8 @@ export const fetchChatHistoryLastN = async (
   sessionId: string,
   n: number
 ): Promise<ChatHistoryItem[]> => {
-  const url = `${BACKEND_BASE_URL}/chat_history_last_n/${encodeURIComponent(sessionId)}?n=${n}`;
-  const res = await fetch(url, {
+  const url = `/chat_history_last_n/${encodeURIComponent(sessionId)}?n=${n}`;
+  const res = await backendFetch(url, {
     method: "GET",
   });
 
@@ -233,7 +233,7 @@ export const createEmptyChatSettings = async (sessionId: string): Promise<void> 
     constraint: null,
   };
 
-  const res = await fetch(`${BACKEND_BASE_URL}/chat_settings`, {
+  const res = await backendFetch("/chat_settings", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -256,8 +256,8 @@ export const createEmptyChatSettings = async (sessionId: string): Promise<void> 
  * 删除聊天设置
  */
 export const deleteChatSettingsBySessionId = async (sessionId: string): Promise<void> => {
-  const url = `${BACKEND_BASE_URL}/chat_settings/${encodeURIComponent(sessionId)}`;
-  const res = await fetch(url, {
+  const url = `/chat_settings/${encodeURIComponent(sessionId)}`;
+  const res = await backendFetch(url, {
     method: "DELETE",
   });
 
@@ -313,7 +313,7 @@ export const clearChatSettingsCache = (): void => {
 export const updateChatSettings = async (
   payload: ChatSettingsData
 ): Promise<ApiResponse<never>> => {
-  const res = await fetch(`${BACKEND_BASE_URL}/chat_settings`, {
+  const res = await backendFetch("/chat_settings", {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -343,8 +343,8 @@ export const updateChatSettings = async (
  * 获取可用工具列表
  */
 export const fetchAvailableTools = async (): Promise<ToolItem[]> => {
-  const url = `${BACKEND_BASE_URL}/tools`;
-  const res = await fetch(url, { method: "GET" });
+  const url = "/tools";
+  const res = await backendFetch(url, { method: "GET" });
 
   if (!res.ok) {
     const text = await res.text();
@@ -366,8 +366,8 @@ export const fetchAvailableTools = async (): Promise<ToolItem[]> => {
  * 获取可用插件列表
  */
 export const fetchAvailablePlugins = async (): Promise<PluginItem[]> => {
-  const url = `${BACKEND_BASE_URL}/plugins`;
-  const res = await fetch(url, { method: "GET" });
+  const url = "/plugins";
+  const res = await backendFetch(url, { method: "GET" });
 
   if (!res.ok) {
     const text = await res.text();

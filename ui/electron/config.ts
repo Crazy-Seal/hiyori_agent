@@ -11,7 +11,11 @@ export const CHAT_REQUEST_TIMEOUT_MS = 900_000;
 export const CHAT_HISTORY_PAGE_SIZE = 200;
 export const CHAT_HISTORY_MAX_PAGES = 500;
 
-export const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL ?? "http://127.0.0.1:8000";
+/** 根据 Electron 主进程环境解析后端基础地址。 */
+export const resolveBackendBaseUrl = (env: NodeJS.ProcessEnv): string =>
+  env.AYAYA_BACKEND_BASE_URL ?? "http://127.0.0.1:8000";
+
+export const AYAYA_BACKEND_BASE_URL = resolveBackendBaseUrl(process.env);
 
 import { fileURLToPath } from "node:url";
 import path from "node:path";

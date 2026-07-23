@@ -9,8 +9,11 @@ import {
   updateChatSettingsCache,
 } from "../electron/chat-settings.js";
 import type { ChatSettingsData } from "../shared-types.js";
+import { configureBackendClient } from "../electron/backend-client.js";
 
 const originalFetch = globalThis.fetch;
+
+configureBackendClient("t".repeat(43));
 
 const savedSettings: ChatSettingsData = {
   session_id: "saved-session",

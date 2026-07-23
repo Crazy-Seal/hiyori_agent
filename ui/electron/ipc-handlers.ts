@@ -2,11 +2,12 @@
  * IPC 处理器注册
  */
 
-import { BrowserWindow, dialog, net, desktopCapturer, screen, clipboard, type IpcMainInvokeEvent } from "electron";
+import { BrowserWindow, dialog, desktopCapturer, screen, clipboard, type IpcMainInvokeEvent } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 
-import { BACKEND_BASE_URL, CHAT_REQUEST_TIMEOUT_MS, FRONTEND_SETTINGS_PATH } from "./config.js";
+import { CHAT_REQUEST_TIMEOUT_MS, FRONTEND_SETTINGS_PATH } from "./config.js";
+import { backendFetch } from "./backend-client.js";
 import { consumeSseStream } from "./sse-stream.js";
 import type {
   ChatSettingsData,
@@ -292,8 +293,8 @@ export const registerIpcHandlers = (): void => {
   );
 
   trustedIpc.handle("desktop-pet:get-pending-interrupt", async (_event, sessionId: string) => {
-    const res = await net.fetch(
-      `${BACKEND_BASE_URL}/agent/pending-interrupt/${encodeURIComponent(sessionId)}`
+    const res = await backendFetch(
+      `/agent/pending-interrupt/${encodeURIComponent(sessionId)}`
     );
     if (!res.ok) {
       const text = await res.text();
@@ -577,7 +578,7 @@ export const registerIpcHandlers = (): void => {
       }, CHAT_REQUEST_TIMEOUT_MS);
 
       try {
-        const res = await net.fetch(`${BACKEND_BASE_URL}/chat`, {
+        const res = await backendFetch("/chat", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -650,7 +651,7 @@ export const registerIpcHandlers = (): void => {
           if (height !== undefined) requestBody.height = height;
         }
 
-        const res = await net.fetch(`${BACKEND_BASE_URL}/screenshot/respond`, {
+        const res = await backendFetch("/screenshot/respond", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -716,7 +717,7 @@ export const registerIpcHandlers = (): void => {
         if (executed !== undefined) requestBody.executed = executed;
         if (error) requestBody.error = error;
 
-        const res = await net.fetch(`${BACKEND_BASE_URL}/control-screen/respond`, {
+        const res = await backendFetch("/control-screen/respond", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

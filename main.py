@@ -10,10 +10,10 @@ from app.runtime import get_images_dir, is_test_environment
 if not is_test_environment():
     load_dotenv()
 
-import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from app.agent.core.state_manager import StateManager
+from app.security.local_api import install_local_api_security, load_api_token
 
 from app.routes.agent import router as agent_router
 from app.routes.chat_settings import router as chat_settings_router
@@ -42,6 +42,7 @@ async def lifespan(_app: FastAPI):
 
 # FastAPI 应用入口：仅负责启动和挂载路由
 app = FastAPI(title="Ayaya server", version="0.1.0", lifespan=lifespan)
+install_local_api_security(app, load_api_token())
 # 挂载 Agent 相关 API
 app.include_router(agent_router)
 app.include_router(chat_settings_router)
@@ -63,11 +64,23 @@ async def root():
     return {"message": "Ayaya server is running"}
 
 
+@app.get("/internal/ready")
+async def internal_ready():
+    """返回仅供 Electron 主进程使用的后端就绪状态。"""
+    return {"ready": True}
+
+
+@app.post("/internal/shutdown")
+async def internal_shutdown(request: Request):
+    """请求当前 Uvicorn 实例执行优雅关闭。"""
+    server = getattr(request.app.state, "uvicorn_server", None)
+    if server is None:
+        raise HTTPException(status_code=503, detail="后端不由受控启动器管理")
+    server.should_exit = True
+    return {"shutting_down": True}
+
+
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="127.0.0.1",
-        port=8000,
-        reload=True,
-        reload_excludes=["agent_workspace/*"]
-    )
+    from app.server import run
+
+    run()

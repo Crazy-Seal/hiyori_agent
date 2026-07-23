@@ -22,6 +22,14 @@ export const registerLive2DProtocol = (): void => {
         corsEnabled: true,
       },
     },
+    {
+      scheme: "ayaya-image",
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+      },
+    },
   ]);
 };
 
