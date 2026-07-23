@@ -5,6 +5,7 @@
 import { BubbleManager } from "./bubble.js";
 import { ChatHistoryManager } from "./chat-history-manager.js";
 import { ScreenshotConfirmDialog } from "./screenshot-confirm-dialog.js";
+import { formatMcpApprovalMessage } from "./mcp-approval.js";
 import { buildInterruptResponseMeta } from "./interrupt-response.js";
 import { ToolCallToastManager } from "./tool-call-toast.js";
 import type { ChatInterruptPayload, ChatResult, ControlScreenActionData } from "../types.js";
@@ -210,6 +211,20 @@ export class ChatClient {
         screenshotData: screenshot?.dataUrl,
         width: screenshot?.width,
         height: screenshot?.height,
+      });
+    }
+
+    if (interruptValue.type === "mcp_tool_approval_request") {
+      const approved = await this.screenshotConfirmDialog.open(
+        formatMcpApprovalMessage(interruptValue),
+        "MCP 工具调用确认",
+        "允许本次调用",
+        "拒绝"
+      );
+      return await window.desktopPetApi.mcpToolRespond?.({
+        sessionId: this.sessionId,
+        ...responseMeta,
+        approved,
       });
     }
 

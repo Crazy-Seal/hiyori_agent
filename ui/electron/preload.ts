@@ -53,6 +53,16 @@ const desktopPetApi: DesktopPetApi = {
     ipcRenderer.invoke("desktop-pet:update-chat-settings", payload),
   getAvailableTools: () => ipcRenderer.invoke("desktop-pet:get-available-tools"),
   getAvailablePlugins: () => ipcRenderer.invoke("desktop-pet:get-available-plugins"),
+  getMcpServers: () => ipcRenderer.invoke("desktop-pet:get-mcp-servers"),
+  testMcpServer: (config) => ipcRenderer.invoke("desktop-pet:test-mcp-server", config),
+  createMcpServer: (config) => ipcRenderer.invoke("desktop-pet:create-mcp-server", config),
+  updateMcpServer: (serverId, config) =>
+    ipcRenderer.invoke("desktop-pet:update-mcp-server", serverId, config),
+  deleteMcpServer: (serverId) => ipcRenderer.invoke("desktop-pet:delete-mcp-server", serverId),
+  reconnectMcpServer: (serverId) =>
+    ipcRenderer.invoke("desktop-pet:reconnect-mcp-server", serverId),
+  getMcpServerTools: (serverId) =>
+    ipcRenderer.invoke("desktop-pet:get-mcp-server-tools", serverId),
   previewLive2DImport: () => ipcRenderer.invoke("desktop-pet:preview-live2d-import"),
   importLive2DModel: (payload) =>
     ipcRenderer.invoke("desktop-pet:import-live2d-model", payload),
@@ -71,6 +81,7 @@ const desktopPetApi: DesktopPetApi = {
     ipcRenderer.invoke("desktop-pet:screenshot-respond", payload),
   controlScreenRespond: (payload) =>
     ipcRenderer.invoke("desktop-pet:control-screen-respond", payload),
+  mcpToolRespond: (payload) => ipcRenderer.invoke("desktop-pet:mcp-tool-respond", payload),
   captureScreen: () => ipcRenderer.invoke("desktop-pet:capture-screen"),
   performScreenAction: (payload) =>
     ipcRenderer.invoke("desktop-pet:perform-screen-action", payload),

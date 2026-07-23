@@ -217,7 +217,48 @@
               <button id="tools-confirm-btn" type="button" class="tools-confirm-btn">确认</button>
             </div>
           </div>
-          <div class="settings-page" data-page="mcp"><div class="page-placeholder">功能开发中</div></div>
+          <div class="settings-page" data-page="mcp">
+            <div id="mcp-page" class="mcp-page">
+              <div class="mcp-toolbar">
+                <div>
+                  <h2>MCP 服务</h2>
+                  <p>全局管理连接，并为当前模型分配工具权限。</p>
+                </div>
+                <button id="mcp-add-btn" type="button" class="mcp-primary-btn">添加服务</button>
+              </div>
+              <div id="mcp-server-list" class="mcp-server-list"></div>
+              <div id="mcp-empty" class="page-placeholder">尚未配置 MCP 服务</div>
+              <button id="mcp-policy-save-btn" type="button" class="mcp-primary-btn">保存当前模型权限</button>
+
+              <form id="mcp-editor" class="mcp-editor" hidden>
+                <h3 id="mcp-editor-title">添加 MCP 服务</h3>
+                <div class="mcp-form-grid">
+                  <label>ID<input id="mcp-id" required maxlength="32" pattern="[A-Za-z0-9_-]+" /></label>
+                  <label>名称<input id="mcp-name" required maxlength="100" /></label>
+                  <label>传输<select id="mcp-transport"><option value="stdio">stdio</option><option value="streamable_http">Streamable HTTP</option></select></label>
+                  <label class="mcp-checkbox"><input id="mcp-enabled" type="checkbox" />启用并连接</label>
+                  <label>连接超时（秒）<input id="mcp-connect-timeout" type="number" min="1" max="300" value="15" /></label>
+                  <label>调用超时（秒）<input id="mcp-call-timeout" type="number" min="1" max="3600" value="60" /></label>
+                </div>
+                <div id="mcp-stdio-fields">
+                  <label>命令<input id="mcp-command" /></label>
+                  <label>参数（每行一个）<textarea id="mcp-args"></textarea></label>
+                  <label>工作目录（可选）<input id="mcp-cwd" /></label>
+                  <div><span>环境变量</span><div id="mcp-env-rows" class="mcp-secret-rows"></div><button id="mcp-add-env" type="button">添加环境变量</button></div>
+                </div>
+                <div id="mcp-http-fields" hidden>
+                  <label>Endpoint<input id="mcp-url" placeholder="https://example.com/mcp" /></label>
+                  <div><span>Headers</span><div id="mcp-header-rows" class="mcp-secret-rows"></div><button id="mcp-add-header" type="button">添加 Header</button></div>
+                </div>
+                <div class="mcp-editor-actions">
+                  <button id="mcp-test-btn" type="button">测试连接</button>
+                  <button id="mcp-save-btn" type="submit" class="mcp-primary-btn">保存</button>
+                  <button id="mcp-cancel-btn" type="button">取消</button>
+                </div>
+                <div id="mcp-test-result" class="mcp-test-result" hidden></div>
+              </form>
+            </div>
+          </div>
           <div class="settings-page" data-page="multimodal">
             <div class="multimodal-panel">
               <div class="multimodal-section">

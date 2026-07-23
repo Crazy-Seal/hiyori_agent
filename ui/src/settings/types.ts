@@ -13,6 +13,9 @@ import type {
   MotionSettingType as SharedMotionSettingType,
   PluginItem as SharedPluginItem,
   ToolItem as SharedToolItem,
+  MCPModelSettings,
+  MCPServerView,
+  MCPToolInfo,
 } from "../../shared-types.js";
 
 export type MotionConfig = SharedMotionConfig;
@@ -77,6 +80,7 @@ export interface EditingState {
   plugins?: {
     agent_plugins: NonNullable<ChatSettingsState["agent_plugins"]>;
   };
+  mcp?: MCPModelSettings;
 }
 
 /**
@@ -94,6 +98,8 @@ export interface PageRenderData {
     availableTools?: ToolItem[];
     availablePlugins?: PluginItem[];
     expressionLabels?: string[];
+    mcpServers?: MCPServerView[];
+    mcpTools?: Map<string, MCPToolInfo[]>;
   };
 }
 
@@ -106,12 +112,13 @@ export interface PageEditingData {
   tools?: EditingState["tools"];
   contextStrategy?: EditingState["contextStrategy"];
   plugins?: EditingState["plugins"];
+  mcp?: EditingState["mcp"];
 }
 
 /**
  * 页面事件类型
  */
-export type PageEventType = "submit";
+export type PageEventType = "submit" | "settings-invalidated";
 
 /**
  * 页面事件回调参数
@@ -124,7 +131,7 @@ export interface PageEvent {
 /**
  * 页面事件回调类型
  */
-export type PageEventCallback = (event: PageEvent) => void;
+export type PageEventCallback = (event: PageEvent) => void | Promise<void>;
 
 /**
  * 设置页面接口（纯视图组件）

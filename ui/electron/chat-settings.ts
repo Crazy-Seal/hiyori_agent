@@ -106,6 +106,9 @@ export const fetchChatSettingsBySessionId = async (
     tools_list: Array.isArray(result.data.tools_list)
       ? result.data.tools_list.map((item) => String(item))
       : [],
+    mcp: result.data.mcp && typeof result.data.mcp === "object"
+      ? result.data.mcp
+      : { servers: {} },
     context_strategy: {
       ...DEFAULT_CONTEXT_STRATEGY,
       ...(result.data.context_strategy || {}),
@@ -214,7 +217,7 @@ export const fetchLatestAiMessageBySessionId = async (
 /**
  * 创建空的聊天设置
  */
-export const createEmptyChatSettings = async (sessionId: string): Promise<void> => {
+export const createEmptyChatSettings = async (sessionId: string): Promise<ChatSettingsData> => {
   const payload: ChatSettingsData = {
     session_id: sessionId,
     model_name: "",
@@ -223,6 +226,7 @@ export const createEmptyChatSettings = async (sessionId: string): Promise<void> 
     temperature: 0,
     system_prompt: "",
     tools_list: [],
+    mcp: { servers: {} },
     context_strategy: { ...DEFAULT_CONTEXT_STRATEGY },
     agent_plugins: DEFAULT_AGENT_PLUGINS,
     name: null,
@@ -246,10 +250,12 @@ export const createEmptyChatSettings = async (sessionId: string): Promise<void> 
     throw new Error(text || `创建 chat_settings 失败: ${res.status}`);
   }
 
-  const result = await parseJsonSafe<ApiResponse<never>>(res);
-  if (!result || result.code !== 200) {
+  const result = await parseJsonSafe<ApiResponse<ChatSettingsData>>(res);
+  if (!result || result.code !== 200 || !result.data) {
     throw new Error(result?.msg || "创建 chat_settings 失败：返回格式错误");
   }
+  chatSettingsCache = result.data;
+  return result.data;
 };
 
 /**
@@ -308,11 +314,26 @@ export const clearChatSettingsCache = (): void => {
 };
 
 /**
+ * 执行 MCP 配置变更，并仅在成功后清理模型配置缓存。
+ *
+ * @param mutation - 创建、更新、删除或重连 MCP Server 的异步操作。
+ * @returns 配置变更操作的原始结果。
+ * @throws {Error} 配置变更失败时原样向上抛出，且保留当前缓存。
+ */
+export const runMcpMutationWithCacheInvalidation = async <T>(
+  mutation: () => Promise<T>
+): Promise<T> => {
+  const result = await mutation();
+  clearChatSettingsCache();
+  return result;
+};
+
+/**
  * 更新聊天设置到后端
  */
 export const updateChatSettings = async (
   payload: ChatSettingsData
-): Promise<ApiResponse<never>> => {
+): Promise<ChatSettingsData> => {
   const res = await backendFetch("/chat_settings", {
     method: "PUT",
     headers: {
@@ -326,17 +347,13 @@ export const updateChatSettings = async (
     throw new Error(text || `更新 chat_settings 失败: ${res.status}`);
   }
 
-  const result = await parseJsonSafe<ApiResponse<never>>(res);
-  if (!result || result.code !== 200) {
+  const result = await parseJsonSafe<ApiResponse<ChatSettingsData>>(res);
+  if (!result || result.code !== 200 || !result.data) {
     throw new Error(result?.msg || "更新 chat_settings 失败：返回格式错误");
   }
 
-  updateChatSettingsCache(payload);
-
-  return {
-    msg: result.msg ?? "success",
-    code: 200,
-  };
+  updateChatSettingsCache(result.data);
+  return result.data;
 };
 
 /**

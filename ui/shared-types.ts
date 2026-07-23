@@ -56,6 +56,7 @@ export type ChatSettingsData = {
   temperature: number;
   system_prompt: string;
   tools_list: string[];
+  mcp: MCPModelSettings;
   context_strategy: ContextStrategyConfig;
   agent_plugins?: Record<string, AgentPluginSettings> | null;
   name?: string | null;
@@ -64,6 +65,68 @@ export type ChatSettingsData = {
   address?: string | null;
   characteristic?: string | null;
   constraint?: string | null;
+};
+
+export type MCPToolPolicy = "allow" | "ask" | "deny";
+
+export type MCPModelSettings = {
+  servers: Record<string, {
+    enabled: boolean;
+    tools: Record<string, MCPToolPolicy>;
+    identity_fingerprint?: string | null;
+  }>;
+};
+
+export type MCPServerStatus = "disabled" | "disconnected" | "connecting" | "available" | "error";
+
+export type MCPStdioServerConfig = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  transport: "stdio";
+  connect_timeout_seconds: number;
+  call_timeout_seconds: number;
+  command: string;
+  args: string[];
+  cwd?: string | null;
+  env: Record<string, string>;
+};
+
+export type MCPHttpServerConfig = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  transport: "streamable_http";
+  connect_timeout_seconds: number;
+  call_timeout_seconds: number;
+  url: string;
+  headers: Record<string, string>;
+};
+
+export type MCPServerConfig = MCPStdioServerConfig | MCPHttpServerConfig;
+
+export type MCPToolInfo = {
+  name: string;
+  description: string;
+  input_schema: Record<string, unknown>;
+  annotations: Record<string, unknown>;
+};
+
+export type MCPServerView = {
+  config: MCPServerConfig;
+  affected_model_count: number;
+  runtime: {
+    status: MCPServerStatus;
+    tool_count: number;
+    last_error: string | null;
+    instructions: string | null;
+  };
+};
+
+export type MCPTestResult = {
+  status: "available";
+  instructions: string | null;
+  tools: MCPToolInfo[];
 };
 
 export type ContextStrategyConfig = {
@@ -178,10 +241,24 @@ export type ControlScreenExecuteInterruptData = {
   data: ControlScreenActionData;
 };
 
+export type MCPToolApprovalInterruptData = {
+  type: "mcp_tool_approval_request";
+  request_id: string;
+  message: string;
+  data: {
+    server_id: string;
+    server_name: string;
+    tool_name: string;
+    description: string;
+    arguments: Record<string, unknown>;
+  };
+};
+
 export type ChatInterruptData =
   | ScreenshotInterruptData
   | ControlScreenCaptureInterruptData
-  | ControlScreenExecuteInterruptData;
+  | ControlScreenExecuteInterruptData
+  | MCPToolApprovalInterruptData;
 
 export type ChatInterruptPayload = {
   value: ChatInterruptData;
@@ -271,9 +348,16 @@ export interface DesktopPetApi {
   getChatHistory: (sessionId: string, start: number, limit: number) => Promise<ChatHistoryItem[]>;
   getChatHistoryLastN: (sessionId: string, n: number) => Promise<ChatHistoryItem[]>;
   getPendingInterrupt: (sessionId: string) => Promise<PendingInterruptResult>;
-  updateChatSettings: (settings: ChatSettingsData) => Promise<ApiResponse<never>>;
+  updateChatSettings: (settings: ChatSettingsData) => Promise<ChatSettingsData>;
   getAvailableTools: () => Promise<{ tools: ToolItem[] }>;
   getAvailablePlugins: () => Promise<{ plugins: PluginItem[] }>;
+  getMcpServers: () => Promise<MCPServerView[]>;
+  testMcpServer: (config: MCPServerConfig) => Promise<MCPTestResult>;
+  createMcpServer: (config: MCPServerConfig) => Promise<MCPServerView>;
+  updateMcpServer: (serverId: string, config: MCPServerConfig) => Promise<MCPServerView>;
+  deleteMcpServer: (serverId: string) => Promise<{ affected_sessions: string[] }>;
+  reconnectMcpServer: (serverId: string) => Promise<MCPServerView>;
+  getMcpServerTools: (serverId: string) => Promise<MCPToolInfo[]>;
   previewLive2DImport: () => Promise<ImportPreview | null>;
   importLive2DModel: (payload: {
     selectedPath: string;
@@ -300,6 +384,12 @@ export interface DesktopPetApi {
   onChatChunk: (callback: (data: ChatChunkData) => void) => () => void;
   screenshotRespond?: (payload: ScreenshotResponsePayload) => Promise<ChatResult>;
   controlScreenRespond?: (payload: ControlScreenResponsePayload) => Promise<ChatResult>;
+  mcpToolRespond?: (payload: {
+    sessionId: string;
+    requestId: string;
+    streamRequestId?: string;
+    approved: boolean;
+  }) => Promise<ChatResult>;
   captureScreen?: () => Promise<{ dataUrl: string; width: number; height: number }>;
   performScreenAction?: (payload: ScreenActionRequest) => Promise<ScreenActionResult>;
   onChatInterrupt?: (callback: (data: ChatInterruptPayload) => void) => () => void;

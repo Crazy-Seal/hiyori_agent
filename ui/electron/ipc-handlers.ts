@@ -43,6 +43,7 @@ import {
   fetchChatHistoryLastN,
   updateChatSettings,
   clearChatSettingsCache,
+  runMcpMutationWithCacheInvalidation,
   fetchAvailableTools,
   fetchAvailablePlugins,
 } from "./chat-settings.js";
@@ -51,8 +52,18 @@ import { createTrustedIpcRegistrar } from "./ipc-security.js";
 import { resolveScreenActionPoint } from "./screen-action-coordinates.js";
 import { pasteScreenActionText } from "./screen-action-input.js";
 import { buildBackendInterruptIdentity } from "./interrupt-response.js";
+import {
+  createMcpServer,
+  deleteMcpServer,
+  fetchMcpServers,
+  fetchMcpServerTools,
+  reconnectMcpServer,
+  testMcpServer,
+  updateMcpServer,
+} from "./mcp-api.js";
 import type {
   ControlScreenResponsePayload,
+  MCPServerConfig,
   ScreenshotResponsePayload,
 } from "../shared-types.js";
 
@@ -327,6 +338,23 @@ export const registerIpcHandlers = (): void => {
     const plugins = await fetchAvailablePlugins();
     return { plugins };
   });
+
+  trustedIpc.handle("desktop-pet:get-mcp-servers", async () => await fetchMcpServers());
+  trustedIpc.handle("desktop-pet:test-mcp-server", async (_event, config: MCPServerConfig) =>
+    await testMcpServer(config));
+  trustedIpc.handle("desktop-pet:create-mcp-server", async (_event, config: MCPServerConfig) =>
+    await runMcpMutationWithCacheInvalidation(() => createMcpServer(config)));
+  trustedIpc.handle(
+    "desktop-pet:update-mcp-server",
+    async (_event, serverId: string, config: MCPServerConfig) =>
+      await runMcpMutationWithCacheInvalidation(() => updateMcpServer(serverId, config))
+  );
+  trustedIpc.handle("desktop-pet:delete-mcp-server", async (_event, serverId: string) =>
+    await runMcpMutationWithCacheInvalidation(() => deleteMcpServer(serverId)));
+  trustedIpc.handle("desktop-pet:reconnect-mcp-server", async (_event, serverId: string) =>
+    await runMcpMutationWithCacheInvalidation(() => reconnectMcpServer(serverId)));
+  trustedIpc.handle("desktop-pet:get-mcp-server-tools", async (_event, serverId: string) =>
+    await fetchMcpServerTools(serverId));
 
   // 更新模型变换
   trustedIpc.handle(
@@ -732,6 +760,44 @@ export const registerIpcHandlers = (): void => {
           throw new Error("Control screen respond timeout (900s), please try again later");
         }
         throw new Error(errorMessage);
+      } finally {
+        clearTimeout(timeoutTimer);
+      }
+    }
+  );
+
+  trustedIpc.handle(
+    "desktop-pet:mcp-tool-respond",
+    async (
+      event,
+      payload: {
+        sessionId: string;
+        requestId: string;
+        streamRequestId?: string;
+        approved: boolean;
+      }
+    ) => {
+      const abortController = new AbortController();
+      const timeoutTimer = setTimeout(() => abortController.abort(), CHAT_REQUEST_TIMEOUT_MS);
+      try {
+        const res = await backendFetch("/mcp/respond", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...buildBackendInterruptIdentity(payload),
+            approved: payload.approved,
+          }),
+          signal: abortController.signal,
+        });
+        if (!res.ok) {
+          throw new Error((await res.text()) || `MCP 授权响应失败: ${res.status}`);
+        }
+        return await streamBackendResponse(
+          event,
+          res,
+          payload.streamRequestId,
+          "MCP 授权响应流格式错误"
+        );
       } finally {
         clearTimeout(timeoutTimer);
       }

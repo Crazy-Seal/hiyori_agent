@@ -8,6 +8,7 @@
 export class ScreenshotConfirmDialog {
   private dialog: HTMLDivElement;
   private messageEl: HTMLDivElement;
+  private titleEl: HTMLDivElement;
   private denyBtn: HTMLButtonElement;
   private allowBtn: HTMLButtonElement;
   private pendingResolver: ((approved: boolean) => void) | null = null;
@@ -15,6 +16,7 @@ export class ScreenshotConfirmDialog {
   constructor() {
     this.dialog = document.getElementById("screenshot-confirm-dialog") as HTMLDivElement;
     this.messageEl = document.getElementById("screenshot-confirm-message") as HTMLDivElement;
+    this.titleEl = document.getElementById("screenshot-confirm-title") as HTMLDivElement;
     this.denyBtn = document.getElementById("screenshot-deny-btn") as HTMLButtonElement;
     this.allowBtn = document.getElementById("screenshot-allow-btn") as HTMLButtonElement;
 
@@ -67,7 +69,15 @@ export class ScreenshotConfirmDialog {
    * @param message 可选的自定义消息
    * @returns Promise<boolean> 用户是否允许截屏
    */
-  open(message?: string): Promise<boolean> {
+  open(
+    message?: string,
+    title = "截屏请求",
+    allowText = "允许",
+    denyText = "拒绝"
+  ): Promise<boolean> {
+    this.titleEl.textContent = title;
+    this.allowBtn.textContent = allowText;
+    this.denyBtn.textContent = denyText;
     if (message) {
       this.messageEl.textContent = message;
     } else {

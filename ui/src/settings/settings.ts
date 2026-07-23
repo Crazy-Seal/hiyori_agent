@@ -14,6 +14,7 @@ import { ContextStrategyPage } from "./pages/context-strategy-page.js";
 import { MultimodalPage } from "./pages/multimodal-page.js";
 import { authorizeBaseUrlChange } from "./url-security.js";
 import { MotionPage } from "./pages/motion-page.js";
+import { McpPage } from "./pages/mcp-page.js";
 import type {
   ChatSettingsState,
   ModelConfig,
@@ -39,6 +40,7 @@ class SettingsApp {
   private contextStrategyPage: ISettingsPage;
   private multimodalPage: MultimodalPage;
   private motionPage: ISettingsPage;
+  private mcpPage: ISettingsPage;
   private confirmDialog: ConfirmDialog;
   private toast: SettingsToast;
 
@@ -141,6 +143,7 @@ class SettingsApp {
       this.getElement("#motion-confirm-btn"),
       this.getElement("#motion-system-prompt")
     );
+    this.mcpPage = new McpPage(this.getElement("#mcp-page"), this.confirmDialog, this.toast);
 
     // 注册页面到映射
     this.pages.set("llm", this.llmPage);
@@ -148,16 +151,18 @@ class SettingsApp {
     this.pages.set("memory", this.pluginsPage);
     this.pages.set("contextStrategy", this.contextStrategyPage);
     this.pages.set("motion", this.motionPage);
+    this.pages.set("mcp", this.mcpPage);
 
     // 设置事件回调
-    const eventCallback: PageEventCallback = (event) => {
-      void this.handlePageEvent(event);
+    const eventCallback: PageEventCallback = async (event) => {
+      await this.handlePageEvent(event);
     };
     this.llmPage.onEvent(eventCallback);
     this.toolsPage.onEvent(eventCallback);
     this.pluginsPage.onEvent(eventCallback);
     this.contextStrategyPage.onEvent(eventCallback);
     this.motionPage.onEvent(eventCallback);
+    this.mcpPage.onEvent(eventCallback);
 
     this.setupEventListeners();
   }
@@ -316,6 +321,24 @@ class SettingsApp {
       }
     }
 
+    if (pageName === "mcp") {
+      try {
+        deps.mcpServers = await window.desktopPetApi.getMcpServers();
+        const toolEntries = await Promise.all(deps.mcpServers.map(async (server) => {
+          try {
+            return [server.config.id, await window.desktopPetApi.getMcpServerTools(server.config.id)] as const;
+          } catch {
+            return [server.config.id, [] as import("../../shared-types.js").MCPToolInfo[]] as const;
+          }
+        }));
+        deps.mcpTools = new Map(toolEntries);
+      } catch (error) {
+        this.toast.error(appendErrorMessage("读取 MCP 服务失败", error));
+        deps.mcpServers = [];
+        deps.mcpTools = new Map();
+      }
+    }
+
     return deps;
   }
 
@@ -365,6 +388,9 @@ class SettingsApp {
   private async handlePageEvent(event: PageEvent): Promise<void> {
     if (event.type === "submit") {
       await this.handleSubmit(event.page);
+    } else if (event.type === "settings-invalidated") {
+      const loaded = await this.initChatSettings(true);
+      if (loaded) await this.renderPage(event.page);
     }
   }
 
@@ -381,6 +407,7 @@ class SettingsApp {
     const editingData = page.getEditingData();
 
     try {
+      let mcpAdjusted = false;
       if (pageName === "llm" && editingData.llm) {
         const saved = await this.saveLlmSettings(editingData.llm);
         if (!saved) {
@@ -394,11 +421,17 @@ class SettingsApp {
         await this.savePluginSettings(editingData.plugins);
       } else if (pageName === "contextStrategy" && editingData.contextStrategy) {
         await this.saveContextStrategy(editingData.contextStrategy);
+      } else if (pageName === "mcp" && editingData.mcp) {
+        mcpAdjusted = await this.saveMcpSettings(editingData.mcp);
       } else {
         return;
       }
 
-      this.toast.success("修改成功");
+      if (mcpAdjusted) {
+        this.toast.error("部分 MCP 权限已由服务端安全调整");
+      } else {
+        this.toast.success("修改成功");
+      }
       await this.renderPage(pageName);
     } catch (error) {
       this.toast.error(appendErrorMessage("修改失败", error));
@@ -447,8 +480,7 @@ class SettingsApp {
       constraint: llmData.constraint || undefined,
     };
 
-    await window.desktopPetApi.updateChatSettings(newState);
-    this.savedState = newState;
+    this.savedState = await window.desktopPetApi.updateChatSettings(newState);
     return true;
   }
 
@@ -482,8 +514,7 @@ class SettingsApp {
         system_prompt,
       };
 
-      await window.desktopPetApi.updateChatSettings(newState);
-      this.savedState = newState;
+      this.savedState = await window.desktopPetApi.updateChatSettings(newState);
     }
   }
 
@@ -500,8 +531,7 @@ class SettingsApp {
       tools_list: toolsData.tools_list,
     };
 
-    await window.desktopPetApi.updateChatSettings(newState);
-    this.savedState = newState;
+    this.savedState = await window.desktopPetApi.updateChatSettings(newState);
   }
 
   /**
@@ -517,8 +547,7 @@ class SettingsApp {
       agent_plugins: pluginsData.agent_plugins,
     };
 
-    await window.desktopPetApi.updateChatSettings(newState);
-    this.savedState = newState;
+    this.savedState = await window.desktopPetApi.updateChatSettings(newState);
   }
 
   private async saveContextStrategy(
@@ -531,8 +560,21 @@ class SettingsApp {
       ...this.savedState,
       context_strategy: contextData.context_strategy,
     };
-    await window.desktopPetApi.updateChatSettings(newState);
-    this.savedState = newState;
+    this.savedState = await window.desktopPetApi.updateChatSettings(newState);
+  }
+
+  /**
+   * 保存当前模型的 MCP Server 和工具权限。
+   *
+   * @param mcp - MCP Server 启用状态和逐工具策略。
+   */
+  private async saveMcpSettings(mcp: NonNullable<EditingState["mcp"]>): Promise<boolean> {
+    if (!this.savedState) return false;
+    const newState: ChatSettingsState = { ...this.savedState, mcp };
+    const saved = await window.desktopPetApi.updateChatSettings(newState);
+    const adjusted = JSON.stringify(saved.mcp) !== JSON.stringify(mcp);
+    this.savedState = saved;
+    return adjusted;
   }
 
   /**
