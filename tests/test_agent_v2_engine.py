@@ -632,24 +632,3 @@ def test_skill_loads_tools_and_prompt_fragment():
         assert agent.config.system_prompt.startswith("基础")
     finally:
         SkillRegistry.clear()
-
-
-def test_mcp_plugin_graceful_without_sdk():
-    """未安装 mcp SDK 时，on_register 应优雅降级（不抛异常、不注册工具）。"""
-    from app.agent.mcp.plugin import MCPPlugin
-    from app.agent.core.tool_manager import ToolManager
-
-    class _FakeAgent:
-        def __init__(self):
-            self.tool_manager = ToolManager()
-
-    async def run():
-        plugin = MCPPlugin({"name": "x", "transport": "stdio", "command": "noop"})
-        agent = _FakeAgent()
-        await plugin.on_register(agent)  # mcp 未安装 → 直接返回
-        await plugin.on_unregister()
-        return plugin, agent
-
-    plugin, agent = asyncio.run(run())
-    assert plugin.tools == []
-    assert len(agent.tool_manager) == 0

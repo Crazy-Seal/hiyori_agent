@@ -14,6 +14,12 @@ from app.agent.message_time import normalize_utc, utc_now
 
 SCREENSHOT_MESSAGE_NAME = "system_screenshot"
 SCREENSHOT_COMPRESSED_NAME = "system_screenshot_compressed"
+MCP_TOOL_IMAGE_MESSAGE_NAME = "mcp_tool_image"
+SYSTEM_INJECTED_USER_MESSAGE_NAMES = frozenset({
+    SCREENSHOT_MESSAGE_NAME,
+    SCREENSHOT_COMPRESSED_NAME,
+    MCP_TOOL_IMAGE_MESSAGE_NAME,
+})
 
 
 def is_user_message(message: dict) -> bool:
@@ -29,9 +35,14 @@ def is_screenshot_message(message: dict) -> bool:
     )
 
 
+def is_system_injected_user_message(message: dict) -> bool:
+    """判断消息是否为系统借用 user 角色注入的模型输入。"""
+    return is_user_message(message) and message.get("name") in SYSTEM_INJECTED_USER_MESSAGE_NAMES
+
+
 def is_real_human_message(message: dict) -> bool:
-    """判断消息是否为真实用户输入，而不是系统注入的截图。"""
-    return is_user_message(message) and not is_screenshot_message(message)
+    """判断消息是否为真实用户输入，而不是系统注入内容。"""
+    return is_user_message(message) and not is_system_injected_user_message(message)
 
 
 class MessageRole(str, Enum):

@@ -5,6 +5,8 @@ from app.schemas.chat_settings import (
     MEMORY_DEFAULT_CONFIG,
     ChatSettings,
 )
+from app.services.mcp_connection_manager import MCPConnectionManager
+from app.services.mcp_policy_resolver import MCPPolicyResolver
 
 
 def _plugin_config(chat_settings: ChatSettings, name: str, defaults: dict) -> dict:
@@ -15,8 +17,21 @@ def _plugin_config(chat_settings: ChatSettings, name: str, defaults: dict) -> di
     return config
 
 
-def build_agent(chat_settings: ChatSettings) -> Agent:
-    """根据会话配置构造一个 Agent。"""
+def build_agent(
+    chat_settings: ChatSettings,
+    mcp_connection_manager: MCPConnectionManager | None = None,
+    mcp_policy_resolver: MCPPolicyResolver | None = None,
+) -> Agent:
+    """根据会话配置构造 Agent。
+
+    Args:
+        chat_settings: 当前模型和会话的完整配置。
+        mcp_connection_manager: 可选的进程级 MCP 连接管理器。
+        mcp_policy_resolver: 可选的会话级 MCP 权限解析器。
+
+    Returns:
+        已注入模型配置和 MCP 权限的 Agent。
+    """
     plugins: list[dict] = [
         {
             "name": "memory",
@@ -35,5 +50,12 @@ def build_agent(chat_settings: ChatSettings) -> Agent:
         context_strategy=chat_settings.context_strategy,
         plugins=plugins,
         skills=list(chat_settings.skills or []),
+        mcp=chat_settings.mcp,
     )
-    return Agent(config)
+    if mcp_connection_manager is None and mcp_policy_resolver is None:
+        return Agent(config)
+    return Agent(
+        config,
+        mcp_connection_manager=mcp_connection_manager,
+        mcp_policy_resolver=mcp_policy_resolver,
+    )

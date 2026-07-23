@@ -11,7 +11,10 @@ def test_plugin_registry_auto_discovers_plugins() -> None:
 
 
 def test_plugins_endpoint_exposes_metadata_from_config_model() -> None:
-    response = TestClient(app).get("/plugins")
+    response = TestClient(app, base_url="http://127.0.0.1").get(
+        "/plugins",
+        headers={"Authorization": f"Bearer {'t' * 43}"},
+    )
 
     assert response.status_code == 200
     payload = response.json()

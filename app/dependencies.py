@@ -8,6 +8,7 @@ from app.crud.chat_settings_dao import ChatSettingsDao
 from app.crud.mcp_settings_dao import MCPSettingsDao
 from app.schemas.chat_settings import ChatSettings
 from app.services.agent_service import AgentService
+from app.services.agent_factory import build_agent
 from app.services.mcp_connection_manager import MCPConnectionManager
 from app.services.mcp_policy_resolver import MCPPolicyResolver
 from app.services.mcp_service import MCPService
@@ -28,22 +29,42 @@ def get_chat_settings_dao() -> ChatSettingsDao:
 
 @lru_cache(maxsize=1)
 def get_mcp_settings_dao() -> MCPSettingsDao:
+    """获取进程级 MCP 配置数据访问对象。
+
+    Returns:
+        缓存的 MCP 配置数据访问对象。
+    """
     return MCPSettingsDao()
 
 
 @lru_cache(maxsize=1)
 def get_settings_mutation_coordinator() -> SettingsMutationCoordinator:
+    """获取跨配置写入协调器。
+
+    Returns:
+        进程级共享的写入协调器。
+    """
     return SettingsMutationCoordinator()
 
 
 @lru_cache(maxsize=1)
 def get_mcp_connection_manager() -> MCPConnectionManager:
+    """构造并缓存进程级 MCP 连接管理器。
+
+    Returns:
+        进程级 MCP 连接管理器。
+    """
     dao = get_mcp_settings_dao()
     return MCPConnectionManager(dao.load)
 
 
 @lru_cache(maxsize=1)
 def get_mcp_policy_resolver() -> MCPPolicyResolver:
+    """构造并缓存无会话权限缓存的 MCP 权限解析器。
+
+    Returns:
+        每次查询均读取最新聊天配置的权限解析器。
+    """
     return MCPPolicyResolver(get_chat_settings_dao().get_chat_settings)
 
 
@@ -58,10 +79,17 @@ def get_chat_settings_loader(
 def get_agent_service(
     chat_history_dao: ChatHistoryDao = Depends(get_chat_history_dao),
     chat_settings_loader: Callable[[str], ChatSettings] = Depends(get_chat_settings_loader),
+    mcp_connection_manager: MCPConnectionManager = Depends(get_mcp_connection_manager),
+    mcp_policy_resolver: MCPPolicyResolver = Depends(get_mcp_policy_resolver),
 ) -> AgentService:
     return AgentService(
         chat_history_dao=chat_history_dao,
         chat_settings_loader=chat_settings_loader,
+        agent_factory=lambda settings: build_agent(
+            settings,
+            mcp_connection_manager,
+            mcp_policy_resolver,
+        ),
     )
 
 
@@ -86,6 +114,17 @@ def get_mcp_service(
     connection_manager: MCPConnectionManager = Depends(get_mcp_connection_manager),
     mutation_coordinator: SettingsMutationCoordinator = Depends(get_settings_mutation_coordinator),
 ) -> MCPService:
+    """组装 MCP 应用服务。
+
+    Args:
+        mcp_settings_dao: MCP Server 配置数据访问对象。
+        chat_settings_dao: 模型配置数据访问对象。
+        connection_manager: 进程级 MCP 连接管理器。
+        mutation_coordinator: 跨配置写入协调器。
+
+    Returns:
+        已完成依赖注入的 MCP 应用服务。
+    """
     return MCPService(
         mcp_settings_dao,
         chat_settings_dao,

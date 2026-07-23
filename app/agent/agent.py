@@ -6,7 +6,7 @@ Agent 核心类
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, TYPE_CHECKING
 
 from app.agent.state import AgentState
 from app.agent.message import ContentPart, ToolCall
@@ -19,6 +19,11 @@ from app.agent.core.pipeline import ExecutionPipeline
 from app.agent.models.llm_client import LLMClient, LLMConfig
 from app.agent.context_strategy import ContextStrategyConfig, ContextStrategyManager
 from app.agent.message_time import RuntimeContext
+from app.schemas.mcp import MCPModelSettings
+
+if TYPE_CHECKING:
+    from app.services.mcp_connection_manager import MCPConnectionManager
+    from app.services.mcp_policy_resolver import MCPPolicyResolver
 
 logger = logging.getLogger(__name__)
 
@@ -48,14 +53,22 @@ class AgentConfig:
     tools: list[str] = field(default_factory=list)
     plugins: list[str | dict[str, Any]] = field(default_factory=list)
     skills: list[str] = field(default_factory=list)
-    mcp_servers: list[dict] = field(default_factory=list)
+    mcp: MCPModelSettings = field(default_factory=MCPModelSettings)
 
 
 class Agent:
     """Agent 核心类"""
 
-    def __init__(self, config: AgentConfig, db_path: str | None = None):
+    def __init__(
+        self,
+        config: AgentConfig,
+        db_path: str | None = None,
+        mcp_connection_manager: "MCPConnectionManager | None" = None,
+        mcp_policy_resolver: "MCPPolicyResolver | None" = None,
+    ):
         self.config = config
+        self.mcp_connection_manager = mcp_connection_manager
+        self.mcp_policy_resolver = mcp_policy_resolver
 
         # 核心管理器
         self.tool_manager = ToolManager()
@@ -185,19 +198,47 @@ class Agent:
             logger.info("加载 Skill: %s", skill_name)
 
     async def _setup_mcp(self) -> None:
-        """初始化 MCP 连接"""
-        if not self.config.mcp_servers:
+        """连接当前模型启用的 Server 并组装 MCP 模型工具空间。"""
+        if not self.config.mcp.servers:
+            return
+        if self.mcp_connection_manager is None or self.mcp_policy_resolver is None:
+            logger.warning("MCP 配置已启用，但连接管理器或权限解析器未注入")
             return
 
-        from app.agent.mcp.plugin import MCPPlugin
+        from app.agent.mcp.adapter import MCPToolAdapter
+        from app.schemas.mcp import MCPToolPolicy
+        from app.services.mcp_connection_manager import MCPConnectionError
 
-        for server_config in self.config.mcp_servers:
+        for server_id, server_policy in self.config.mcp.servers.items():
             try:
-                plugin = MCPPlugin(server_config)
-                await self.plugin_manager.register(plugin, self)
-                logger.info(f"加载 MCP 服务器: {server_config.get('name', 'unknown')}")
-            except Exception as e:
-                logger.error(f"加载 MCP 服务器失败: {e}")
+                server_config = self.mcp_connection_manager.get_server_config(server_id)
+            except MCPConnectionError as exc:
+                logger.error("MCP Server '%s' 配置不可用，已跳过: %s", server_id, exc)
+                continue
+            if not server_config.enabled or not server_policy.enabled:
+                continue
+            try:
+                descriptors = await self.mcp_connection_manager.connect(server_id)
+            except MCPConnectionError as exc:
+                logger.error("MCP Server '%s' 连接失败，已跳过: %s", server_id, exc)
+                continue
+            for descriptor in descriptors:
+                policy = server_policy.tools.get(descriptor.name, MCPToolPolicy.ASK)
+                if policy == MCPToolPolicy.DENY:
+                    continue
+                adapter = MCPToolAdapter(
+                    session_id=self.config.session_id,
+                    server_id=server_id,
+                    server_name=server_config.name,
+                    descriptor=descriptor,
+                    policy=policy,
+                    connection_manager=self.mcp_connection_manager,
+                    policy_resolver=self.mcp_policy_resolver,
+                )
+                if self.tool_manager.has(adapter.name):
+                    logger.error("MCP 工具名称与现有工具冲突，已跳过: %s", adapter.name)
+                    continue
+                self.tool_manager.register(adapter)
 
     async def run(
         self,
@@ -451,7 +492,9 @@ async def create_agent(
     system_prompt: str = "",
     tools: list[str] | None = None,
     plugins: list[str] | None = None,
-    mcp_servers: list[dict] | None = None
+    mcp: MCPModelSettings | None = None,
+    mcp_connection_manager: "MCPConnectionManager | None" = None,
+    mcp_policy_resolver: "MCPPolicyResolver | None" = None,
 ) -> Agent:
     """创建 Agent 的便捷函数"""
     config = AgentConfig(
@@ -464,8 +507,12 @@ async def create_agent(
         system_prompt=system_prompt,
         tools=tools or [],
         plugins=plugins or [],
-        mcp_servers=mcp_servers or []
+        mcp=mcp or MCPModelSettings(),
     )
-    agent = Agent(config)
+    agent = Agent(
+        config,
+        mcp_connection_manager=mcp_connection_manager,
+        mcp_policy_resolver=mcp_policy_resolver,
+    )
     await agent.initialize()
     return agent

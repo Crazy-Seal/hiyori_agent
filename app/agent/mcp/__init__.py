@@ -1,10 +1,7 @@
-"""
-MCP 协议集成模块
+"""MCP 工具适配模块。
 
-包含:
-- MCPClient: MCP 客户端
-- MCPToolAdapter: MCP 工具适配器
-- MCPPlugin: MCP 集成插件
+连接由进程级 MCPConnectionManager 统一管理，工具通过 MCPToolAdapter
+注册到 ToolManager。
 """
 
 __all__ = []

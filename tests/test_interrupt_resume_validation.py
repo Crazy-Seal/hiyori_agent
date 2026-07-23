@@ -103,6 +103,14 @@ async def _drain(stream: AsyncIterator[AgentEvent]) -> list[AgentEvent]:
                 approved=True,
             ),
         ),
+        (
+            "control_screen_execute_request",
+            lambda service: service.resume_after_mcp_tool(
+                "session-a",
+                request_id="request-current",
+                approved=True,
+            ),
+        ),
     ],
 )
 async def test_resume_endpoint_rejects_other_interrupt_types(
@@ -131,6 +139,12 @@ async def test_resume_endpoint_rejects_other_interrupt_types(
         (
             "control_screen_capture_request",
             lambda service: service.resume_after_control_screen(
+                "session-a", request_id="request-stale", approved=False
+            ),
+        ),
+        (
+            "mcp_tool_approval_request",
+            lambda service: service.resume_after_mcp_tool(
                 "session-a", request_id="request-stale", approved=False
             ),
         ),
@@ -198,6 +212,15 @@ async def test_resume_endpoint_rejects_missing_interrupt_before_agent_creation(
                 executed=True,
             ),
             {"approved": True, "executed": True},
+        ),
+        (
+            "mcp_tool_approval_request",
+            lambda service: service.resume_after_mcp_tool(
+                "session-a",
+                request_id="request-current",
+                approved=True,
+            ),
+            {"approved": True},
         ),
     ],
 )

@@ -131,3 +131,22 @@ def test_compressed_user_image_uses_message_level_image_description() -> None:
     compressed_part = result[0]["content"][1]
     assert compressed_part["type"] == "text"
     assert "一只橘猫趴在键盘旁边。" in compressed_part["text"]
+
+
+def test_mcp_tool_images_share_image_ttl_without_counting_as_human_turns() -> None:
+    config = ContextStrategyConfig(
+        max_images_in_context=1,
+        image_ttl_human_messages=1,
+    )
+    old_mcp_image = _image_message(1)
+    old_mcp_image["name"] = "mcp_tool_image"
+    new_mcp_image = _image_message(2)
+    new_mcp_image["name"] = "mcp_tool_image"
+
+    result = _compress_window_messages(
+        [old_mcp_image, _human(1), new_mcp_image],
+        config,
+    )
+
+    assert result[0]["content"][1]["type"] == "text"
+    assert result[2]["content"][1]["type"] == "image_url"

@@ -164,6 +164,38 @@ def test_checkpoint_and_visible_history_are_saved_atomically(tmp_path: Path) -> 
     asyncio.run(scenario())
 
 
+def test_mcp_tool_image_is_not_persisted_as_human_history(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        manager = StateManager("test-session", db_path=str(tmp_path / "agent.sqlite3"))
+        try:
+            state = AgentState.create_new("test-session")
+            state.add_user_message("真实问题")
+            state.messages.append({
+                "role": "user",
+                "name": "mcp_tool_image",
+                "content": [
+                    {"type": "text", "text": "[系统消息]工具返回图片"},
+                    {"type": "image_url", "image_url": {"url": "data:image/png;base64,MQ=="}},
+                ],
+            })
+            state.add_assistant_message("完成")
+            await manager.save(state, checkpoint_type="completed")
+
+            db = await manager._get_db()
+            rows = await db.execute_fetchall(
+                "SELECT role, content FROM chat_history WHERE thread_id = ? ORDER BY id",
+                ("test-session",),
+            )
+            assert [(row[0], row[1]) for row in rows] == [
+                ("Human", "真实问题"),
+                ("AI", "完成"),
+            ]
+        finally:
+            await manager.close()
+
+    asyncio.run(scenario())
+
+
 def test_state_manager_does_not_access_retired_legacy_database(
     tmp_path: Path,
     monkeypatch,
