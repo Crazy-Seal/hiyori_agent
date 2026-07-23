@@ -34,6 +34,7 @@ app/agent/tools/tools.log
 # ===== Environment files =====
 .env
 config/chat_settings.yaml
+config/mcp_servers.yaml
 
 # ===== Claude =====
 .claude

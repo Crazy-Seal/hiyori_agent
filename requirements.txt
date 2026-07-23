@@ -9,5 +9,4 @@ pytest==9.0.2
 uvicorn==0.41.0
 numpy==2.4.4
 mem0ai==1.0.11
-# MCP 集成（可选）
-# mcp>=1.0.0
+mcp==1.28.1

@@ -13,6 +13,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PRODUCTION_DATA_DIR = PROJECT_ROOT / "memory"
 PRODUCTION_CHAT_SETTINGS_FILE = PROJECT_ROOT / "config" / "chat_settings.yaml"
+PRODUCTION_MCP_SETTINGS_FILE = PROJECT_ROOT / "config" / "mcp_servers.yaml"
 
 
 def get_environment() -> str:
@@ -85,6 +86,25 @@ def get_chat_settings_file() -> Path:
 
     if is_test_environment():
         return require_test_storage_path(path, "AYAYA_CHAT_SETTINGS_FILE")
+    return path
+
+
+def get_mcp_settings_file() -> Path:
+    """解析当前运行环境使用的 MCP 配置文件路径。
+
+    Returns:
+        生产或隔离测试环境中的 MCP Server YAML 路径。
+    """
+    configured = os.getenv("AYAYA_MCP_SETTINGS_FILE", "").strip()
+    if configured:
+        path = _resolved(Path(configured))
+    elif is_test_environment():
+        path = get_data_dir() / "config" / "mcp_servers.yaml"
+    else:
+        path = PRODUCTION_MCP_SETTINGS_FILE
+
+    if is_test_environment():
+        return require_test_storage_path(path, "AYAYA_MCP_SETTINGS_FILE")
     return path
 
 

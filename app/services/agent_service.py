@@ -52,7 +52,22 @@ class AgentService:
         resume_data: dict,
         operation_name: str,
     ) -> AsyncIterator:
-        """校验并恢复当前会话中的指定中断。"""
+        """校验并恢复当前会话中的指定中断。
+
+        Args:
+            session_id: 待恢复的会话 ID。
+            request_id: 前端回传的持久化中断 ID。
+            expected_types: 当前恢复入口允许消费的中断类型。
+            resume_data: 传递给可恢复工具的用户响应数据。
+            operation_name: 用于日志和异常消息的操作名称。
+
+        Yields:
+            恢复执行后产生的 Agent 事件。
+
+        Raises:
+            ValueError: 当前中断不存在、类型不匹配或请求已过期。
+            RuntimeError: Agent 恢复执行失败。
+        """
         async with self._get_session_lock(session_id):
             state_manager = StateManager(session_id)
             try:
@@ -170,6 +185,36 @@ class AgentService:
             }),
             resume_data=resume_data,
             operation_name="恢复屏幕控制工具",
+        ):
+            yield event
+
+    async def resume_after_mcp_tool(
+        self,
+        session_id: str,
+        *,
+        request_id: str,
+        approved: bool,
+    ) -> AsyncIterator:
+        """校验 MCP 中断标识并恢复单次工具调用。
+
+        Args:
+            session_id: 待恢复的会话 ID。
+            request_id: 前端回传的审批请求 ID。
+            approved: 用户是否批准本次工具调用。
+
+        Yields:
+            恢复执行后产生的 Agent 事件。
+
+        Raises:
+            ValueError: 当前不存在匹配的 MCP 审批请求。
+            RuntimeError: Agent 恢复执行失败。
+        """
+        async for event in self._resume_interrupted(
+            session_id,
+            request_id=request_id,
+            expected_types=frozenset({"mcp_tool_approval_request"}),
+            resume_data={"approved": approved},
+            operation_name="恢复 MCP 工具调用",
         ):
             yield event
 

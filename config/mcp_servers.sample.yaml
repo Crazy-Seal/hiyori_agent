@@ -1,0 +1,25 @@
+servers:
+  - id: filesystem
+    name: Filesystem
+    enabled: false
+    transport: stdio
+    command: npx
+    args:
+      - -y
+      - "@modelcontextprotocol/server-filesystem"
+      - "E:\\Projects"
+    cwd: null
+    env:
+      EXAMPLE_TOKEN: YOUR_TOKEN_HERE
+    connect_timeout_seconds: 15
+    call_timeout_seconds: 60
+
+  - id: remote-search
+    name: Remote Search
+    enabled: false
+    transport: streamable_http
+    url: https://example.com/mcp
+    headers:
+      Authorization: Bearer YOUR_TOKEN_HERE
+    connect_timeout_seconds: 15
+    call_timeout_seconds: 60

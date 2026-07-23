@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -13,7 +14,6 @@ if not is_test_environment():
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from app.agent.core.state_manager import StateManager
-from app.security.local_api import install_local_api_security, load_api_token
 
 from app.routes.agent import router as agent_router
 from app.routes.chat_settings import router as chat_settings_router
@@ -22,6 +22,9 @@ from app.routes.control_screen import router as control_screen_router
 from app.routes.screenshot import router as screenshot_router
 from app.routes.tools import router as tools_router
 from app.routes.plugins import router as plugins_router
+from app.routes.mcp import router as mcp_router
+from app.dependencies import get_mcp_connection_manager
+from app.security.local_api import install_local_api_security, load_api_token
 
 # 控制台日志基础配置：让 Agent 的收发日志在本地启动时可见
 logging.basicConfig(
@@ -37,7 +40,15 @@ async def lifespan(_app: FastAPI):
         await manager._get_db()
     finally:
         await manager.close()
-    yield
+    mcp_manager = get_mcp_connection_manager()
+    preconnect_task = asyncio.create_task(mcp_manager.preconnect_enabled())
+    try:
+        yield
+    finally:
+        if not preconnect_task.done():
+            preconnect_task.cancel()
+        await asyncio.gather(preconnect_task, return_exceptions=True)
+        await mcp_manager.close()
 
 
 # FastAPI 应用入口：仅负责启动和挂载路由
@@ -51,6 +62,7 @@ app.include_router(control_screen_router)
 app.include_router(screenshot_router)
 app.include_router(tools_router)
 app.include_router(plugins_router)
+app.include_router(mcp_router)
 
 # 静态文件服务：用于访问保存的图片
 IMAGES_DIR = get_images_dir()

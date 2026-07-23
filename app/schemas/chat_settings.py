@@ -3,6 +3,7 @@ from typing import Any
 from pydantic import BaseModel, Field, model_validator
 
 from app.agent.context_strategy import ContextStrategyConfig
+from app.schemas.mcp import MCPModelSettings
 
 
 MEMORY_DEFAULT_CONFIG = {
@@ -46,6 +47,7 @@ class ChatSettings(BaseModel):
     context_strategy: ContextStrategyConfig
     agent_plugins: dict[str, AgentPluginSettings] | None = None
     skills: list[str] | None = None
+    mcp: MCPModelSettings = Field(default_factory=MCPModelSettings)
 
     name: str | None = None
     feature: str | None = None
@@ -99,4 +101,13 @@ class ChatSettings(BaseModel):
                 for name, settings in sorted(self.agent_plugins.items())
             ),
             tuple(self.skills or []),
+            tuple(
+                (
+                    server_id,
+                    policy.enabled,
+                    policy.identity_fingerprint,
+                    tuple(sorted((name, value.value) for name, value in policy.tools.items())),
+                )
+                for server_id, policy in sorted(self.mcp.servers.items())
+            ),
         ))
