@@ -1,7 +1,9 @@
 """在导入应用模块前，强制所有后端测试使用一次性存储目录。"""
 
+import logging
 import os
 import tempfile
+from pathlib import Path
 
 
 _TEST_STORAGE = tempfile.TemporaryDirectory(prefix="ayaya-tests-")
@@ -20,4 +22,13 @@ for variable in (
 
 
 def pytest_sessionfinish(session, exitstatus) -> None:
+    tool_logger = logging.getLogger("app.agent.tools")
+    test_tool_log = (Path(_TEST_STORAGE.name) / "logs" / "tools.log").resolve()
+    for handler in tuple(tool_logger.handlers):
+        if (
+            isinstance(handler, logging.FileHandler)
+            and Path(handler.baseFilename).resolve() == test_tool_log
+        ):
+            tool_logger.removeHandler(handler)
+            handler.close()
     _TEST_STORAGE.cleanup()

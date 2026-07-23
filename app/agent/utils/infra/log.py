@@ -7,6 +7,8 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
+from app.runtime import get_data_dir, is_test_environment
+
 
 def shorten_for_log(text: str, max_len: int = 200) -> str:
     """限制日志长度，避免控制台被超长内容刷屏。"""
@@ -17,20 +19,28 @@ def shorten_for_log(text: str, max_len: int = 200) -> str:
 
 _SENSITIVE_KEYS = {"api_key", "token", "password", "secret", "authorization"}
 _TOOL_LOGGER_LOCK = Lock()
-# 解析到 app/agent/tools/tools.log
-_TOOL_LOG_FILE = Path(__file__).resolve().parents[2] / "tools" / "tools.log"
+# 生产环境继续使用原有工具日志位置。
+_PRODUCTION_TOOL_LOG_FILE = Path(__file__).resolve().parents[2] / "tools" / "tools.log"
+
+
+def _get_tool_log_file() -> Path:
+    """按运行环境返回工具日志路径，避免测试日志污染生产日志。"""
+    if is_test_environment():
+        return get_data_dir() / "logs" / "tools.log"
+    return _PRODUCTION_TOOL_LOG_FILE
 
 
 def _ensure_tool_file_handler(logger: logging.Logger) -> None:
     """为工具日志器附加文件输出，避免重复添加 handler。"""
-    target = str(_TOOL_LOG_FILE.resolve())
+    tool_log_file = _get_tool_log_file()
+    target = str(tool_log_file.resolve())
     with _TOOL_LOGGER_LOCK:
         for handler in logger.handlers:
             if isinstance(handler, logging.FileHandler) and getattr(handler, "baseFilename", "") == target:
                 return
 
-        _TOOL_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-        file_handler = logging.FileHandler(_TOOL_LOG_FILE, encoding="utf-8")
+        tool_log_file.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.FileHandler(tool_log_file, encoding="utf-8")
         file_handler.setLevel(logging.INFO)
         file_handler.setFormatter(
             logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
