@@ -102,7 +102,7 @@ test("窗口静态控件使用统一语义类", () => {
 
   assertHasClasses(settingsHtml, "settings-close-btn", ["ui-button--danger"]);
   assertHasClasses(settingsHtml, "import-model-btn", ["ui-button--primary"]);
-  assertHasClasses(settingsHtml, "open-log-window-btn", ["ui-button--secondary"]);
+  assertHasClasses(settingsHtml, "open-log-window-btn", ["ui-button--primary"]);
   assertHasClasses(settingsHtml, "delete-confirm-ok", ["ui-button--danger"]);
   assertHasClasses(settingsHtml, "checkbox-follow-cursor", ["ui-checkbox"]);
   assertHasClasses(settingsHtml, "checkbox-hide-on-screenshot", ["ui-checkbox"]);
