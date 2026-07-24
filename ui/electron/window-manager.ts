@@ -11,7 +11,13 @@ import {
   WINDOW_HEIGHT,
   SETTINGS_WIDTH,
   SETTINGS_HEIGHT,
+  LOG_WINDOW_WIDTH,
+  LOG_WINDOW_HEIGHT,
+  LOG_WINDOW_MIN_WIDTH,
+  LOG_WINDOW_MIN_HEIGHT,
 } from "./config.js";
+import type { LogBatch } from "../shared-types.js";
+import { appendFrontendLog, captureRendererLogs } from "./logging/app-logger.js";
 import {
   createTrustedRendererPolicy,
   describeRendererUrl,
@@ -23,26 +29,33 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const productionIndexPath = path.resolve(__dirname, "../../dist/index.html");
 const productionSettingsPath = path.resolve(__dirname, "../../dist/settings.html");
+const productionLogsPath = path.resolve(__dirname, "../../dist/logs.html");
 const rendererPolicy = createTrustedRendererPolicy({
   devServerUrl: process.env.VITE_DEV_SERVER_URL,
   productionEntryUrls: [
     pathToFileURL(productionIndexPath).href,
     pathToFileURL(productionSettingsPath).href,
+    pathToFileURL(productionLogsPath).href,
   ],
 });
 
 export const getTrustedRendererPolicy = () => rendererPolicy;
 
 const logBlockedNavigation = (kind: string, targetUrl: string): void => {
-  console.warn(`[Security] 拒绝窗口${kind}: target=${describeRendererUrl(targetUrl)}`);
+  appendFrontendLog(
+    "warn",
+    "renderer-security",
+    `拒绝窗口${kind}: target=${describeRendererUrl(targetUrl)}`,
+  );
 };
 
-const protectApplicationWindow = (win: BrowserWindow): void => {
+const protectApplicationWindow = (win: BrowserWindow, scope: string): void => {
   installNavigationGuards(
     win.webContents,
     (targetUrl) => isTrustedRendererUrl(targetUrl, rendererPolicy),
     logBlockedNavigation
   );
+  captureRendererLogs(win, scope);
 };
 
 /**
@@ -54,6 +67,9 @@ let mainWindow: BrowserWindow | null = null;
  * 设置窗口引用
  */
 let settingsWindow: BrowserWindow | null = null;
+
+/** 日志控制台窗口引用。 */
+let logWindow: BrowserWindow | null = null;
 
 /**
  * 图片预览窗口引用
@@ -73,6 +89,8 @@ export const getMainWindow = (): BrowserWindow | null => {
 export const getSettingsWindow = (): BrowserWindow | null => {
   return settingsWindow;
 };
+
+export const getLogWindow = (): BrowserWindow | null => logWindow;
 
 /**
  * 设置主窗口引用
@@ -115,7 +133,7 @@ export const createMainWindow = (): BrowserWindow => {
       nodeIntegration: false,
     },
   });
-  protectApplicationWindow(win);
+  protectApplicationWindow(win, "main-window");
 
   win.setAlwaysOnTop(true, "screen-saver");
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -165,7 +183,7 @@ export const openSettingsWindow = (): void => {
       nodeIntegration: false,
     },
   });
-  protectApplicationWindow(win);
+  protectApplicationWindow(win, "settings-window");
 
   if (rendererPolicy.mode === "development") {
     win.loadURL(`${rendererPolicy.origin}/settings.html`);
@@ -185,6 +203,55 @@ export const openSettingsWindow = (): void => {
   });
 
   settingsWindow = win;
+};
+
+/** 创建或聚焦前后端实时日志控制台。 */
+export const openLogWindow = (): BrowserWindow => {
+  if (logWindow && !logWindow.isDestroyed()) {
+    if (logWindow.isMinimized()) logWindow.restore();
+    logWindow.show();
+    logWindow.focus();
+    return logWindow;
+  }
+
+  const win = new BrowserWindow({
+    width: LOG_WINDOW_WIDTH,
+    height: LOG_WINDOW_HEIGHT,
+    minWidth: LOG_WINDOW_MIN_WIDTH,
+    minHeight: LOG_WINDOW_MIN_HEIGHT,
+    center: true,
+    frame: false,
+    transparent: false,
+    resizable: true,
+    show: false,
+    fullscreenable: false,
+    backgroundColor: "#141722",
+    webPreferences: {
+      preload: path.resolve(__dirname, "preload.cjs"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  protectApplicationWindow(win, "log-window");
+  if (rendererPolicy.mode === "development") {
+    void win.loadURL(`${rendererPolicy.origin}/logs.html`);
+  } else {
+    void win.loadFile(productionLogsPath);
+  }
+  win.once("ready-to-show", () => {
+    win.show();
+    win.focus();
+  });
+  win.on("closed", () => {
+    if (logWindow === win) logWindow = null;
+  });
+  logWindow = win;
+  return win;
+};
+
+export const sendLogBatch = (batch: LogBatch): void => {
+  if (!logWindow || logWindow.isDestroyed()) return;
+  logWindow.webContents.send("desktop-pet:log-batch", batch);
 };
 
 /**
@@ -331,6 +398,9 @@ export const initWindowEventListeners = (): void => {
       }
       if (settingsWindow === win) {
         settingsWindow = null;
+      }
+      if (logWindow === win) {
+        logWindow = null;
       }
     });
   });

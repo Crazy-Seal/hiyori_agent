@@ -19,7 +19,7 @@ type IpcSenderDescriptor = {
   isMainFrame: boolean;
 };
 
-const DEV_ALLOWED_PATHS = new Set(["/", "/index.html", "/settings.html"]);
+const DEV_ALLOWED_PATHS = new Set(["/", "/index.html", "/settings.html", "/logs.html"]);
 
 const isIpv4Loopback = (hostname: string): boolean => {
   const parts = hostname.split(".");

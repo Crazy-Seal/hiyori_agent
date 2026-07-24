@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { fileURLToPath } from "node:url";
 
 export default defineConfig({
   server: {
@@ -7,6 +8,13 @@ export default defineConfig({
     strictPort: true
   },
   build: {
-    outDir: "dist"
+    outDir: "dist",
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL("./index.html", import.meta.url)),
+        settings: fileURLToPath(new URL("./settings.html", import.meta.url)),
+        logs: fileURLToPath(new URL("./logs.html", import.meta.url)),
+      },
+    },
   }
 });

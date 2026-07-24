@@ -8,6 +8,7 @@ test("重复关闭请求只停止后端并退出一次", async () => {
   let stopCursorCalls = 0;
   let stopBackendCalls = 0;
   let quitCalls = 0;
+  let closeLogsCalls = 0;
   let releaseBackend: (() => void) | undefined;
   const backendStopped = new Promise<void>((resolve) => {
     releaseBackend = resolve;
@@ -19,6 +20,7 @@ test("重复关闭请求只停止后端并退出一次", async () => {
       stopBackendCalls += 1;
       await backendStopped;
     },
+    closeLogs: async () => { closeLogsCalls += 1; },
     quit: () => { quitCalls += 1; },
     logError: () => undefined,
   });
@@ -34,6 +36,7 @@ test("重复关闭请求只停止后端并退出一次", async () => {
   assert.equal(stopCursorCalls, 1);
   assert.equal(stopBackendCalls, 1);
   assert.equal(quitCalls, 1);
+  assert.equal(closeLogsCalls, 1);
   assert.equal(coordinator.isComplete(), true);
 });
 
@@ -46,6 +49,7 @@ test("后端关闭失败仍完成应用退出", async () => {
     stopBackend: async () => {
       throw new Error("shutdown failed");
     },
+    closeLogs: async () => undefined,
     quit: () => { quitCalls += 1; },
     logError: (_message, error) => logged.push(error),
   });
@@ -54,4 +58,23 @@ test("后端关闭失败仍完成应用退出", async () => {
 
   assert.equal(quitCalls, 1);
   assert.equal(logged.length, 1);
+});
+
+test("后端停止后再刷新日志，日志失败仍允许退出", async () => {
+  const order: string[] = [];
+  const coordinator = createApplicationShutdownCoordinator({
+    beginBackendRecoveryShutdown: () => undefined,
+    stopCursorTracking: () => undefined,
+    stopBackend: async () => { order.push("backend"); },
+    closeLogs: async () => {
+      order.push("logs");
+      throw new Error("log flush failed");
+    },
+    quit: () => { order.push("quit"); },
+    logError: () => undefined,
+  });
+
+  await coordinator.requestShutdown();
+
+  assert.deepEqual(order, ["backend", "logs", "quit"]);
 });

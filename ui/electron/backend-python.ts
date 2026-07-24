@@ -228,7 +228,11 @@ export const buildBackendPythonEnvironment = (
   resolvedPython: ResolvedBackendPython,
   platform: NodeJS.Platform,
 ): NodeJS.ProcessEnv => {
-  const childEnvironment = { ...baseEnvironment };
+  const childEnvironment: NodeJS.ProcessEnv = {
+    ...baseEnvironment,
+    PYTHONIOENCODING: "utf-8",
+    PYTHONUTF8: "1",
+  };
   if (!resolvedPython.environmentRoot) return childEnvironment;
 
   const pathApi = platform === "win32" ? path.win32 : path.posix;

@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process";
 import { EventEmitter } from "node:events";
+import { PassThrough } from "node:stream";
 import { test } from "node:test";
 
+import type { LogLevel } from "../shared-types.js";
 import {
   createBackendProcessController,
   startBackend,
@@ -15,6 +17,8 @@ class FakeChildProcess extends EventEmitter {
   pid: number | undefined = 1234;
   exitCode: number | null = null;
   signalCode: NodeJS.Signals | null = null;
+  stdout = new PassThrough();
+  stderr = new PassThrough();
 }
 
 interface ControllerHarnessOptions {
@@ -36,6 +40,7 @@ const createHarness = (options: ControllerHarnessOptions = {}) => {
   const spawnCalls: Array<{ command: string; args: readonly string[]; options: SpawnOptions }> = [];
   const terminated: ChildProcess[] = [];
   const loggedErrors: unknown[] = [];
+  const backendLogs: Array<{ source: "stdout" | "stderr"; level: LogLevel; message: string }> = [];
   let shutdownCalls = 0;
   const controller = createBackendProcessController({
     env: options.env ?? {},
@@ -66,6 +71,9 @@ const createHarness = (options: ControllerHarnessOptions = {}) => {
       (process as unknown as FakeChildProcess).exitCode = -1;
     },
     logError: (_message, error) => loggedErrors.push(error),
+    appendBackendLog: (source, level, message) => {
+      backendLogs.push({ source, level, message });
+    },
     pollIntervalMs: 1,
     startupTimeoutMs: options.startupTimeoutMs ?? 100,
     shutdownTimeoutMs: options.shutdownTimeoutMs ?? 5,
@@ -81,6 +89,7 @@ const createHarness = (options: ControllerHarnessOptions = {}) => {
     spawnCalls,
     terminated,
     loggedErrors,
+    backendLogs,
     get shutdownCalls() {
       return shutdownCalls;
     },
@@ -150,6 +159,39 @@ test("默认直接使用解析出的 ayaya Python 启动后端", async () => {
     (harness.spawnCalls[0]?.options.env as NodeJS.ProcessEnv).AYAYA_PARENT_PID,
     String(process.pid),
   );
+  assert.deepEqual(harness.spawnCalls[0]?.options.stdio, ["ignore", "pipe", "pipe"]);
+});
+
+test("托管后端持续解析 stdout 和 stderr，退出时刷新残留行", async () => {
+  const harness = createHarness();
+  await harness.controller.startBackend();
+
+  harness.child.stdout.write("application ");
+  harness.child.stdout.write("ready\n");
+  harness.child.stderr.write("INFO: Uvicorn running\r\nERROR: broken");
+  harness.child.stdout.end();
+  harness.child.stderr.end();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(harness.backendLogs, [
+    { source: "stdout", level: "info", message: "application ready" },
+    { source: "stderr", level: "info", message: "INFO: Uvicorn running" },
+    { source: "stderr", level: "error", message: "ERROR: broken" },
+  ]);
+});
+
+test("外部后端模式不创建 Python，并写入无法捕获外部日志的提示", async () => {
+  const harness = createHarness({
+    env: {
+      AYAYA_MANAGE_BACKEND: "false",
+      AYAYA_API_TOKEN: "e".repeat(43),
+    },
+  });
+
+  await harness.controller.startBackend();
+
+  assert.equal(harness.children.length, 0);
+  assert.match(harness.backendLogs[0]?.message ?? "", /无法捕获外部 Python/);
 });
 
 test("AYAYA_PYTHON_EXECUTABLE 覆盖默认 Conda 命令", async () => {

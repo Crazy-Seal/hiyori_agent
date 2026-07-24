@@ -29,6 +29,9 @@ const desktopPetApi: DesktopPetApi = {
   openSettingsWindow: () => {
     ipcRenderer.send("desktop-pet:open-settings-window");
   },
+  openLogWindow: () => {
+    ipcRenderer.send("desktop-pet:open-log-window");
+  },
   minimizeCurrentWindow: () => {
     ipcRenderer.send("desktop-pet:minimize-current-window");
   },
@@ -106,6 +109,10 @@ const desktopPetApi: DesktopPetApi = {
       "desktop-pet:motion-config-changed",
       listener
     ),
+  getLogSnapshot: () => ipcRenderer.invoke("desktop-pet:get-log-snapshot"),
+  onLogBatch: (listener) => subscribe("desktop-pet:log-batch", listener),
+  clearLogBuffer: (side) => ipcRenderer.invoke("desktop-pet:clear-log-buffer", side),
+  openLogDirectory: () => ipcRenderer.invoke("desktop-pet:open-log-directory"),
 };
 
 contextBridge.exposeInMainWorld("desktopPetApi", desktopPetApi);

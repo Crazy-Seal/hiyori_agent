@@ -51,6 +51,7 @@ import { getMainWindow, getSettingsWindow, getTrustedRendererPolicy, openSetting
 import { createTrustedIpcRegistrar } from "./ipc-security.js";
 import { resolveScreenActionPoint } from "./screen-action-coordinates.js";
 import { pasteScreenActionText } from "./screen-action-input.js";
+import { appendFrontendLog } from "./logging/app-logger.js";
 import { buildBackendInterruptIdentity } from "./interrupt-response.js";
 import {
   createMcpServer,
@@ -208,7 +209,7 @@ const performScreenAction = async (payload: ScreenActionRequest): Promise<Screen
     return { executed: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[ControlScreen] 屏幕操作失败:", error);
+    appendFrontendLog("error", "control-screen", "屏幕操作失败", error);
     return { executed: false, error: message };
   }
 };
@@ -578,7 +579,7 @@ export const registerIpcHandlers = (): void => {
           dataUrl: `data:image/${mimeType};base64,${base64}`,
         });
       } catch (error) {
-        console.warn("Failed to read image:", filePath, error);
+        appendFrontendLog("warn", "image-picker", `读取图片失败: ${filePath}`, error);
       }
     }
 
@@ -814,7 +815,7 @@ export const registerIpcHandlers = (): void => {
 
   // 截取屏幕
   trustedIpc.handle("desktop-pet:capture-screen", async () => {
-    console.log("[CaptureScreen] 开始截屏...");
+    appendFrontendLog("info", "capture-screen", "开始截屏");
     try {
       const sources = await desktopCapturer.getSources({
         types: ["screen"],
@@ -829,7 +830,11 @@ export const registerIpcHandlers = (): void => {
       const size = primaryScreen.thumbnail.getSize();
       const dataUrl = primaryScreen.thumbnail.toDataURL();
 
-      console.log("[CaptureScreen] 截屏成功, 尺寸:", size.width, "x", size.height, ", 数据长度:", dataUrl.length);
+      appendFrontendLog(
+        "info",
+        "capture-screen",
+        `截屏成功，尺寸 ${size.width}x${size.height}，数据长度 ${dataUrl.length}`,
+      );
 
       return {
         dataUrl,
@@ -837,7 +842,7 @@ export const registerIpcHandlers = (): void => {
         height: size.height,
       };
     } catch (error) {
-      console.error("[CaptureScreen] 截屏失败:", error);
+      appendFrontendLog("error", "capture-screen", "截屏失败", error);
       throw error;
     }
   });

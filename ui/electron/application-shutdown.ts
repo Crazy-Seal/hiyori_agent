@@ -5,6 +5,7 @@ interface ApplicationShutdownDependencies {
   beginBackendRecoveryShutdown: () => void;
   stopCursorTracking: () => void;
   stopBackend: () => Promise<void>;
+  closeLogs: () => Promise<void>;
   quit: () => void;
   logError: (message: string, error: unknown) => void;
 }
@@ -46,10 +47,14 @@ export const createApplicationShutdownCoordinator = (
         await dependencies.stopBackend();
       } catch (error) {
         dependencies.logError("停止后端进程失败", error);
-      } finally {
-        phase = "complete";
-        dependencies.quit();
       }
+      try {
+        await dependencies.closeLogs();
+      } catch (error) {
+        dependencies.logError("刷新日志文件失败", error);
+      }
+      phase = "complete";
+      dependencies.quit();
     })();
     return shutdownPromise;
   };

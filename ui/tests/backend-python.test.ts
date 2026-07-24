@@ -237,4 +237,26 @@ test("直接启动环境 Python 时补充环境可执行目录且不修改父环
       "C:\\Windows\\System32",
     ].join(";"),
   );
+  assert.equal(childEnvironment.PYTHONIOENCODING, "utf-8");
+  assert.equal(childEnvironment.PYTHONUTF8, "1");
+  assert.deepEqual(parentEnvironment, { PATH: "C:\\Windows\\System32" });
+});
+
+test("显式 Python 没有环境根目录时仍强制标准流使用 UTF-8", () => {
+  const parentEnvironment = {
+    PATH: "C:\\Windows\\System32",
+    PYTHONIOENCODING: "gbk",
+    PYTHONUTF8: "0",
+  };
+
+  const childEnvironment = buildBackendPythonEnvironment(
+    parentEnvironment,
+    { executable: "C:\\Python\\python.exe" },
+    "win32",
+  );
+
+  assert.equal(childEnvironment.PYTHONIOENCODING, "utf-8");
+  assert.equal(childEnvironment.PYTHONUTF8, "1");
+  assert.equal(parentEnvironment.PYTHONIOENCODING, "gbk");
+  assert.equal(parentEnvironment.PYTHONUTF8, "0");
 });

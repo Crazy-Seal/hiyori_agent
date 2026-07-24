@@ -6,6 +6,10 @@ export const WINDOW_WIDTH = 460;
 export const WINDOW_HEIGHT = 760;
 export const SETTINGS_WIDTH = 820;
 export const SETTINGS_HEIGHT = 520;
+export const LOG_WINDOW_WIDTH = 1200;
+export const LOG_WINDOW_HEIGHT = 720;
+export const LOG_WINDOW_MIN_WIDTH = 900;
+export const LOG_WINDOW_MIN_HEIGHT = 500;
 
 export const CHAT_REQUEST_TIMEOUT_MS = 900_000;
 export const CHAT_HISTORY_PAGE_SIZE = 200;

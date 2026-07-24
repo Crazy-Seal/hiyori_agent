@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ayaya 日志控制台</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <main class="log-window">
+      <header class="settings-titlebar log-titlebar">
+        <div class="log-heading">
+          <div class="settings-title log-title">Ayaya 日志控制台</div>
+          <div id="log-status" class="log-status" role="status">正在连接日志流…</div>
+        </div>
+        <div class="window-actions">
+          <button id="log-min-btn" class="window-btn" type="button" aria-label="最小化">─</button>
+          <button id="log-close-btn" class="window-btn window-btn-close" type="button" aria-label="关闭">✕</button>
+        </div>
+      </header>
+
+      <section class="log-toolbar" aria-label="日志工具栏">
+        <label class="search-field">
+          <span>搜索</span>
+          <input id="log-search" name="log-search" type="search" autocomplete="off" placeholder="输入关键词筛选两侧日志…" />
+        </label>
+        <button id="log-pause-btn" class="toolbar-btn" type="button" aria-pressed="false">暂停刷新</button>
+        <button id="open-log-directory-btn" class="toolbar-btn toolbar-btn-primary" type="button">
+          打开日志目录
+        </button>
+      </section>
+
+      <section class="log-panels">
+        <article class="log-panel" data-side="frontend">
+          <header class="panel-header">
+            <div>
+              <h2>前端日志</h2>
+              <p>Electron Main / Renderer</p>
+            </div>
+            <div class="panel-count" id="frontend-count">0 条</div>
+          </header>
+          <div class="panel-controls">
+            <label>级别
+              <select id="frontend-level" name="frontend-level">
+                <option value="debug">DEBUG</option>
+                <option value="info">INFO</option>
+                <option value="warn">WARNING</option>
+                <option value="error">ERROR</option>
+              </select>
+            </label>
+            <label>来源
+              <select id="frontend-source" name="frontend-source">
+                <option value="">全部</option>
+                <option value="electron-main">Electron Main</option>
+                <option value="renderer">Renderer</option>
+              </select>
+            </label>
+            <label class="check-control">
+              <input id="frontend-autoscroll" name="frontend-autoscroll" type="checkbox" checked />
+              自动滚动
+            </label>
+            <button id="frontend-clear" class="panel-btn panel-btn-danger" type="button">清空视图</button>
+          </div>
+          <div id="frontend-logs" class="log-list" role="log" aria-live="off"></div>
+        </article>
+
+        <article class="log-panel" data-side="backend">
+          <header class="panel-header">
+            <div>
+              <h2>后端日志</h2>
+              <p>Python / FastAPI / Uvicorn</p>
+            </div>
+            <div class="panel-count" id="backend-count">0 条</div>
+          </header>
+          <div class="panel-controls">
+            <label>级别
+              <select id="backend-level" name="backend-level">
+                <option value="debug">DEBUG</option>
+                <option value="info">INFO</option>
+                <option value="warn">WARNING</option>
+                <option value="error">ERROR</option>
+              </select>
+            </label>
+            <label>来源
+              <select id="backend-source" name="backend-source">
+                <option value="">全部</option>
+                <option value="stdout">stdout</option>
+                <option value="stderr">stderr</option>
+              </select>
+            </label>
+            <label class="check-control">
+              <input id="backend-autoscroll" name="backend-autoscroll" type="checkbox" checked />
+              自动滚动
+            </label>
+            <button id="backend-clear" class="panel-btn panel-btn-danger" type="button">清空视图</button>
+          </div>
+          <div id="backend-logs" class="log-list" role="log" aria-live="off"></div>
+        </article>
+      </section>
+    </main>
+    <script type="module" src="/src/logs/log-viewer.ts"></script>
+  </body>
+</html>

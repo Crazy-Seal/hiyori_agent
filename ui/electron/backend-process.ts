@@ -5,6 +5,7 @@ import {
 } from "node:child_process";
 import { randomBytes } from "node:crypto";
 
+import type { LogLevel } from "../shared-types.js";
 import { AYAYA_BACKEND_BASE_URL, WORKSPACE_ROOT } from "./config.js";
 import { backendFetch, configureBackendClient } from "./backend-client.js";
 import {
@@ -12,6 +13,12 @@ import {
   createBackendPythonResolver,
   type ResolvedBackendPython,
 } from "./backend-python.js";
+import {
+  appendBackendLog,
+  appendFrontendLog,
+  registerSensitiveLogValue,
+} from "./logging/app-logger.js";
+import { BackendLineDecoder, inferBackendLevel } from "./logging/log-core.js";
 
 const DEFAULT_STARTUP_TIMEOUT_MS = 30_000;
 const DEFAULT_POLL_INTERVAL_MS = 200;
@@ -39,6 +46,12 @@ interface BackendProcessDependencies {
   platform: NodeJS.Platform;
   ownerPid: number;
   logError: (message: string, error: unknown) => void;
+  appendBackendLog: (
+    source: "stdout" | "stderr",
+    level: LogLevel,
+    message: string,
+  ) => void;
+  registerSensitiveValue: (value: string) => void;
 }
 
 /** 后端进程在成功就绪后的非预期退出信息。 */
@@ -98,7 +111,7 @@ const terminateProcessTree = async (child: ChildProcess): Promise<void> => {
     try {
       child.kill("SIGKILL");
     } catch (error) {
-      console.error("强制终止后端进程失败", error);
+      appendFrontendLog("error", "backend-process", "强制终止后端进程失败", error);
     }
     return;
   }
@@ -134,7 +147,9 @@ const defaultDependencies: BackendProcessDependencies = {
   shutdownTimeoutMs: DEFAULT_SHUTDOWN_TIMEOUT_MS,
   platform: process.platform,
   ownerPid: process.pid,
-  logError: (message, error) => console.error(message, error),
+  logError: (message, error) => appendFrontendLog("error", "backend-process", message, error),
+  appendBackendLog,
+  registerSensitiveValue: registerSensitiveLogValue,
 };
 
 const waitForExit = async (child: ChildProcess, timeoutMs: number): Promise<void> => {
@@ -224,6 +239,7 @@ export const createBackendProcessController = (
       throw new Error("外部后端模式必须显式提供至少 256 bit 的 AYAYA_API_TOKEN");
     }
     dependencies.configureClient(token);
+    dependencies.registerSensitiveValue(token);
 
     let generation: ManagedBackendGeneration | null = null;
     let timeout: NodeJS.Timeout | undefined;
@@ -250,9 +266,19 @@ export const createBackendProcessController = (
             cwd: dependencies.env.AYAYA_BACKEND_CWD || dependencies.workspaceRoot,
             env: childEnvironment,
             windowsHide: true,
-            stdio: "ignore",
+            stdio: ["ignore", "pipe", "pipe"],
           },
         );
+        const stdoutDecoder = new BackendLineDecoder((line) => {
+          dependencies.appendBackendLog("stdout", inferBackendLevel(line), line);
+        });
+        const stderrDecoder = new BackendLineDecoder((line) => {
+          dependencies.appendBackendLog("stderr", inferBackendLevel(line), line);
+        });
+        current.stdout?.on("data", (chunk: Buffer | string) => stdoutDecoder.write(chunk));
+        current.stderr?.on("data", (chunk: Buffer | string) => stderrDecoder.write(chunk));
+        current.stdout?.once("end", () => stdoutDecoder.end());
+        current.stderr?.once("end", () => stderrDecoder.end());
         generation = {
           child: current,
           startupComplete: false,
@@ -293,6 +319,13 @@ export const createBackendProcessController = (
               });
             });
           }),
+        );
+      }
+      if (!managed) {
+        dependencies.appendBackendLog(
+          "stderr",
+          "info",
+          "当前为外部后端模式，Electron 无法捕获外部 Python 进程的实时日志",
         );
       }
 

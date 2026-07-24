@@ -32,6 +32,7 @@ class SettingsApp {
   private sidebar: HTMLDivElement;
   private minBtn: HTMLButtonElement;
   private closeBtn: HTMLButtonElement;
+  private logWindowBtn: HTMLButtonElement;
 
   private modelPage: ModelPage;
   private llmPage: ISettingsPage;
@@ -59,6 +60,7 @@ class SettingsApp {
     this.sidebar = this.getElement("#settings-sidebar");
     this.minBtn = this.getElement("#settings-min-btn");
     this.closeBtn = this.getElement("#settings-close-btn");
+    this.logWindowBtn = this.getElement("#open-log-window-btn");
     this.toast = new SettingsToast(this.getElement("#settings-toast"));
 
     // 初始化确认对话框
@@ -206,6 +208,9 @@ class SettingsApp {
     // 关闭按钮
     this.closeBtn.addEventListener("click", () => {
       window.desktopPetApi.closeCurrentWindow();
+    });
+    this.logWindowBtn.addEventListener("click", () => {
+      window.desktopPetApi.openLogWindow();
     });
 
     // 模型变化监听

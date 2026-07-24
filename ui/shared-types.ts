@@ -310,6 +310,31 @@ export type FrontendSettings = {
   hide_on_screenshot: boolean;
 };
 
+export type LogSide = "frontend" | "backend";
+
+export type LogSource = "electron-main" | "renderer" | "stdout" | "stderr";
+
+export type LogLevel = "debug" | "info" | "warn" | "error";
+
+export type LogRecord = {
+  id: number;
+  timestamp: string;
+  side: LogSide;
+  source: LogSource;
+  level: LogLevel;
+  scope: string;
+  message: string;
+};
+
+export type LogSnapshot = {
+  frontend: LogRecord[];
+  backend: LogRecord[];
+};
+
+export type LogBatch = {
+  records: LogRecord[];
+};
+
 export type ScreenActionRequest = ControlScreenActionData;
 
 export type ScreenActionResult = {
@@ -335,6 +360,7 @@ export interface DesktopPetApi {
   setMousePassthrough: (enabled: boolean) => void;
   setPointerInteractive: (enabled: boolean) => void;
   openSettingsWindow: () => void;
+  openLogWindow: () => void;
   minimizeCurrentWindow: () => void;
   closeCurrentWindow: () => void;
   openImagePreview: (imageSrc: string) => void;
@@ -403,4 +429,8 @@ export interface DesktopPetApi {
   onMotionConfigChanged?: (
     callback: (payload: { modelId: string; motionConfig: MotionConfig[] }) => void
   ) => () => void;
+  getLogSnapshot: () => Promise<LogSnapshot>;
+  onLogBatch: (callback: (batch: LogBatch) => void) => () => void;
+  clearLogBuffer: (side: LogSide) => Promise<void>;
+  openLogDirectory: () => Promise<void>;
 }

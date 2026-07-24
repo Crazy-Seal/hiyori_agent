@@ -9,6 +9,7 @@ import {
   isTrustedIpcSender,
   type TrustedRendererPolicy,
 } from "./renderer-security.js";
+import { appendFrontendLog } from "./logging/app-logger.js";
 
 const senderDescriptor = (event: IpcMainEvent | IpcMainInvokeEvent) => {
   const frame = event.senderFrame;
@@ -23,7 +24,11 @@ const senderDescriptor = (event: IpcMainEvent | IpcMainInvokeEvent) => {
 
 const logBlockedIpc = (channel: string, event: IpcMainEvent | IpcMainInvokeEvent): void => {
   const source = event.senderFrame ? describeRendererUrl(event.senderFrame.url) : "missing-frame";
-  console.warn(`[Security] 拒绝不可信 IPC: channel=${channel} source=${source}`);
+  appendFrontendLog(
+    "warn",
+    "ipc-security",
+    `拒绝不可信 IPC: channel=${channel} source=${source}`,
+  );
 };
 
 export const createTrustedIpcRegistrar = (policy: TrustedRendererPolicy) => ({
