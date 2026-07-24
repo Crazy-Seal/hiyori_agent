@@ -32,4 +32,6 @@ Unset `AYAYA_ENV` means production: use repository `memory/`, `config/chat_setti
 
 ## Commit & Pull Request Guidelines
 
+Do not stage files, create commits, amend commits, reset, rebase, squash, push, or otherwise change Git state or history unless the user has explicitly authorized that action in the current request. A request to implement, fix, test, or follow a workflow does not by itself grant permission to commit. When permission is absent, leave changes uncommitted and report the working tree state.
+
 All commit messages must follow Conventional Commits using `<type>(<scope>): <description>`; the scope is optional. Use concise Chinese imperative descriptions for one logical change, for example `fix(agent): 修复流式工具调用聚合`. Common types include `feat`, `fix`, `refactor`, `test`, `docs`, `build`, `ci`, and `chore`. Pull requests should explain purpose, implementation impact, test commands and results, configuration changes, and linked issues. Include screenshots or a short recording for visible UI changes.
