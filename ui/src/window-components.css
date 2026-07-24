@@ -253,6 +253,106 @@ textarea.ui-control {
   color: var(--color-text-muted);
 }
 
+@supports (appearance: base-select) {
+  .ui-select,
+  .ui-select::picker(select) {
+    appearance: base-select;
+  }
+
+  .ui-select {
+    display: inline-flex;
+    align-items: center;
+    padding-right: var(--spacing-md);
+    background-image: none;
+    line-height: 1;
+  }
+
+  .ui-select::picker-icon {
+    width: 14px;
+    height: 14px;
+    margin-inline-start: auto;
+    flex: 0 0 14px;
+    align-self: center;
+    display: block;
+    content: "";
+    color: var(--color-primary-light);
+    background: currentColor;
+    clip-path: polygon(18% 34%, 82% 34%, 50% 68%);
+    transform-origin: center;
+    transition:
+      color var(--transition-fast),
+      transform var(--transition-fast);
+  }
+
+  .ui-select:open::picker-icon {
+    transform: rotate(180deg);
+  }
+
+  .ui-select:disabled::picker-icon {
+    color: var(--color-text-muted);
+  }
+
+  .ui-select::picker(select) {
+    max-height: min(320px, 50vh);
+    padding: var(--spacing-xs);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    background: var(--color-bg-elevated);
+    box-shadow: var(--shadow-clay-dark);
+    font-family: var(--font-family-body);
+    font-size: var(--font-size-label);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .ui-select option {
+    min-height: var(--control-height-small);
+    padding: 0 var(--spacing-md);
+    border: 0;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    background: transparent;
+    font-family: var(--font-family-body);
+    font-size: var(--font-size-label);
+    line-height: 1;
+    cursor: pointer;
+    transition:
+      color var(--transition-fast),
+      background var(--transition-fast);
+  }
+
+  .ui-select option:hover:not(:disabled),
+  .ui-select option:focus {
+    outline: 1px solid rgba(249, 115, 22, 0.32);
+    outline-offset: -1px;
+    color: var(--color-text-primary);
+    background: var(--color-bg-surface);
+  }
+
+  .ui-select option:checked {
+    color: var(--color-primary-light);
+    background: rgba(249, 115, 22, 0.14);
+    font-weight: 600;
+  }
+
+  .ui-select option:disabled {
+    color: var(--color-text-muted);
+    background: transparent;
+    cursor: not-allowed;
+    opacity: var(--control-disabled-opacity);
+  }
+
+  .ui-select option::checkmark {
+    order: 1;
+    margin-left: auto;
+    color: var(--color-primary-light);
+  }
+}
+
 .ui-checkbox {
   width: 20px;
   min-width: 20px;
@@ -405,6 +505,7 @@ textarea.ui-control {
   .ui-button,
   .ui-nav-item,
   .ui-control,
+  .ui-select::picker-icon,
   .ui-checkbox,
   .ui-range,
   .ui-range::-webkit-slider-thumb,

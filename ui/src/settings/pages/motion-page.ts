@@ -284,6 +284,7 @@ export class MotionPage implements ISettingsPage {
       const select = document.createElement("select");
       select.className = "motion-setting-select ui-control ui-control--small ui-select";
       select.dataset.motionName = motionName;
+      select.ariaLabel = `${motionName} 的动作设置`;
 
       const options = [
         { value: "none", text: "无" },

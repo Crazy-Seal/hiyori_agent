@@ -217,3 +217,45 @@ test("共享下拉框显示清晰箭头并为原生选项提供主题样式", ()
     /\.ui-select option:checked\s*\{[^}]*background-color:\s*var\(--color-primary-dark\);/s,
   );
 });
+
+test("支持环境使用 base-select 美化按钮、Picker 和选项状态", () => {
+  const css = readUiFile("src/window-components.css");
+  const supportStart = css.indexOf("@supports (appearance: base-select)");
+
+  assert.notEqual(supportStart, -1, "缺少 base-select 渐进增强块");
+  const supportedCss = css.slice(supportStart);
+  assert.match(
+    supportedCss,
+    /\.ui-select,\s*\.ui-select::picker\(select\)\s*\{[^}]*appearance:\s*base-select;/s,
+  );
+  assert.match(
+    supportedCss,
+    /\.ui-select\s*\{[^}]*background-image:\s*none;/s,
+  );
+  assert.match(supportedCss, /\.ui-select::picker-icon\s*\{/);
+  assert.match(supportedCss, /\.ui-select:open::picker-icon\s*\{/);
+  assert.match(
+    supportedCss,
+    /\.ui-select::picker\(select\)\s*\{[^}]*max-height:\s*min\(320px,\s*50vh\);/s,
+  );
+  assert.match(supportedCss, /\.ui-select option:hover/);
+  assert.match(supportedCss, /\.ui-select option:focus/);
+  assert.match(supportedCss, /\.ui-select option:checked/);
+  assert.match(supportedCss, /\.ui-select option:disabled/);
+  assert.match(supportedCss, /\.ui-select option::checkmark\s*\{/);
+});
+
+test("动态表情设置下拉框提供包含动作名称的可访问名称", () => {
+  const motionPage = readUiFile("src/settings/pages/motion-page.ts");
+
+  assert.match(
+    motionPage,
+    /select\.ariaLabel\s*=\s*`\$\{motionName\}\s*的动作设置`;/,
+  );
+});
+
+test("Vite 生产构建使用相对资源路径供 Electron loadFile 加载", () => {
+  const viteConfig = readUiFile("vite.config.ts");
+
+  assert.match(viteConfig, /base:\s*["']\.\/["']/);
+});
