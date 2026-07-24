@@ -32,6 +32,11 @@ class MemoryConfig:
     embedding_dimension: int = 1024
     embedding_base_url: str = ""
 
+    # 情景记忆提取模型
+    episodic_extraction_model: str = ""
+    episodic_extraction_api_key: str = ""
+    episodic_extraction_base_url: str = ""
+
     # 记忆参数
     summary_every_messages: int = 10     # 每 N 条消息生成一次摘要
     recent_summaries_count: int = 2      # 获取最近 N 天摘要
@@ -64,6 +69,9 @@ class MemoryConfig:
             embedding_model=os.getenv("EMBEDDING_MODEL", ""),
             embedding_dimension=int(os.getenv("EMBEDDING_DIMENSION", "1024")),
             embedding_base_url=os.getenv("EMBEDDING_BASE_URL", ""),
+            episodic_extraction_model=os.getenv("EPISODIC_EXTRACTION_MODEL", ""),
+            episodic_extraction_api_key=os.getenv("EPISODIC_EXTRACTION_API_KEY", ""),
+            episodic_extraction_base_url=os.getenv("EPISODIC_EXTRACTION_BASE_URL", ""),
             timezone=timezone,
             day_boundary_hour=day_boundary_hour,
         )

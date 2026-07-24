@@ -6,6 +6,7 @@ from app.agent.context_strategy import ContextStrategyConfig, ContextStrategyMan
 from app.agent.memory import manager as memory_manager_module
 from app.agent.memory.config import MemoryConfig
 from app.agent.memory.manager import MemoryManager
+from app.agent.memory.memories import episodic as episodic_module
 from app.agent.message import Message
 from app.agent.message import is_real_human_message
 from app.agent.plugins import memory as memory_plugin_module
@@ -36,6 +37,79 @@ def _chat_settings(*, enable_diary=True, enable_episodic=True, enable_semantic=T
         },
         skills=[],
     )
+
+
+def _capture_episodic_llm_config(monkeypatch, config: MemoryConfig):
+    captured = {}
+
+    class FakeStore:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FakeLLMClient:
+        def __init__(self, llm_config):
+            captured["config"] = llm_config
+
+    monkeypatch.setattr(episodic_module, "EpisodicChromaStore", FakeStore)
+    monkeypatch.setattr(episodic_module, "EpisodicSqliteStore", FakeStore)
+    monkeypatch.setattr(episodic_module, "LLMClient", FakeLLMClient)
+
+    episodic_module.EpisodicMemory(
+        "test-session",
+        config,
+        _chat_settings(),
+    )
+    return captured["config"]
+
+
+def test_memory_config_reads_episodic_extraction_environment(monkeypatch) -> None:
+    monkeypatch.setenv("EPISODIC_EXTRACTION_MODEL", "gpt-test")
+    monkeypatch.setenv("EPISODIC_EXTRACTION_BASE_URL", "https://memory.example/v1")
+    monkeypatch.setenv("EPISODIC_EXTRACTION_API_KEY", "memory-key")
+
+    config = MemoryConfig.from_env()
+
+    assert config.episodic_extraction_model == "gpt-test"
+    assert config.episodic_extraction_base_url == "https://memory.example/v1"
+    assert config.episodic_extraction_api_key == "memory-key"
+
+
+def test_episodic_memory_uses_independent_extraction_config(monkeypatch) -> None:
+    llm_config = _capture_episodic_llm_config(
+        monkeypatch,
+        MemoryConfig(
+            episodic_extraction_model="gpt-test",
+            episodic_extraction_base_url="https://memory.example/v1",
+            episodic_extraction_api_key="memory-key",
+        ),
+    )
+
+    assert llm_config.model == "gpt-test"
+    assert llm_config.base_url == "https://memory.example/v1"
+    assert llm_config.api_key == "memory-key"
+
+
+def test_episodic_memory_uses_only_explicit_model_without_chat_fallback(
+    monkeypatch,
+) -> None:
+    llm_config = _capture_episodic_llm_config(
+        monkeypatch,
+        MemoryConfig(episodic_extraction_model="gpt-test"),
+    )
+
+    assert llm_config.model == "gpt-test"
+    assert llm_config.base_url == ""
+    assert llm_config.api_key == ""
+
+
+def test_episodic_memory_does_not_fall_back_to_chat_model_config(
+    monkeypatch,
+) -> None:
+    llm_config = _capture_episodic_llm_config(monkeypatch, MemoryConfig())
+
+    assert llm_config.model == ""
+    assert llm_config.base_url == ""
+    assert llm_config.api_key == ""
 
 
 def test_memory_persistence_runs_every_ten_human_messages(monkeypatch) -> None:

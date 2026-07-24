@@ -278,6 +278,7 @@ class LLMClient:
         **kwargs,
     ) -> dict:
         """结构化输出调用 LLM（json_schema 强约束）"""
+        max_attempts = 2
         payload = self._base_payload(
             messages,
             stream=False,
@@ -292,14 +293,65 @@ class LLMClient:
             **kwargs,
         )
 
-        try:
-            completion = await self._client.chat.completions.create(**payload)
-        except Exception as e:
-            logger.error("LLM 结构化输出调用失败: %s", e)
-            raise
+        for attempt in range(1, max_attempts + 1):
+            try:
+                completion = await self._client.chat.completions.create(**payload)
+            except Exception as e:
+                logger.error("LLM 结构化输出调用失败: %s", e)
+                raise
 
-        content = completion.choices[0].message.content or "{}"
-        return json.loads(content)
+            choice = completion.choices[0]
+            finish_reason = choice.finish_reason or "unknown"
+            content = choice.message.content or ""
+            content_length = len(content)
+
+            if finish_reason != "stop":
+                logger.warning(
+                    "LLM 结构化输出未正常结束: model=%s, attempt=%d/%d, "
+                    "finish_reason=%s, content_length=%d",
+                    self.config.model,
+                    attempt,
+                    max_attempts,
+                    finish_reason,
+                    content_length,
+                )
+                if attempt < max_attempts:
+                    continue
+                raise RuntimeError(
+                    "LLM 结构化输出未正常结束: "
+                    f"finish_reason={finish_reason}, attempts={max_attempts}"
+                )
+
+            try:
+                result = json.loads(content)
+            except json.JSONDecodeError as exc:
+                logger.warning(
+                    "LLM 结构化输出 JSONDecodeError: model=%s, attempt=%d/%d, "
+                    "finish_reason=%s, content_length=%d, line=%d, column=%d, "
+                    "position=%d",
+                    self.config.model,
+                    attempt,
+                    max_attempts,
+                    finish_reason,
+                    content_length,
+                    exc.lineno,
+                    exc.colno,
+                    exc.pos,
+                )
+                if attempt < max_attempts:
+                    continue
+                raise
+
+            if attempt > 1:
+                logger.info(
+                    "LLM 结构化输出重试成功: model=%s, attempt=%d/%d",
+                    self.config.model,
+                    attempt,
+                    max_attempts,
+                )
+            return result
+
+        raise RuntimeError("LLM 结构化输出重试流程异常结束")
 
 
 def create_llm_client(

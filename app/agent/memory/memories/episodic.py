@@ -123,9 +123,9 @@ class EpisodicMemory:
 
         # 初始化 LLM
         self.llm = LLMClient(LLMConfig(
-            model=chat_settings.model_name,
-            api_key=chat_settings.openai_api_key,
-            base_url=chat_settings.openai_base_url,
+            model=config.episodic_extraction_model,
+            api_key=config.episodic_extraction_api_key,
+            base_url=config.episodic_extraction_base_url,
             temperature=0.1,
             timeout=60.0,
         ))
