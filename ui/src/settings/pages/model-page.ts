@@ -209,13 +209,13 @@ export class ModelPage {
 
       const button = document.createElement("button");
       button.type = "button";
-      button.className = `model-item ${model.id === config.activeModelId ? "active" : ""}`;
+      button.className = `model-item ui-surface ui-surface--compact ${model.id === config.activeModelId ? "active" : ""}`;
       button.dataset.modelId = model.id;
       button.innerHTML = `<div class="model-name">${model.name}</div><div class="model-session">session_id: ${model.sessionId}</div>`;
 
       const deleteButton = document.createElement("button");
       deleteButton.type = "button";
-      deleteButton.className = "delete-model-btn";
+      deleteButton.className = "delete-model-btn ui-button ui-button--danger ui-button--medium";
       deleteButton.dataset.modelId = model.id;
       deleteButton.textContent = "删除";
       deleteButton.disabled = !model.deletable;

@@ -120,7 +120,7 @@ export class PluginsPage implements ISettingsPage {
     const enabled = plugin.inherent || saved?.enabled === true;
 
     const card = document.createElement("div");
-    card.className = "plugin-card";
+    card.className = "plugin-card ui-surface";
     card.dataset.pluginName = plugin.name;
     card.dataset.pluginInherent = String(plugin.inherent);
 
@@ -142,6 +142,7 @@ export class PluginsPage implements ISettingsPage {
     toggleText.textContent = plugin.inherent ? "固有插件" : "启用";
     const toggle = document.createElement("input");
     toggle.type = "checkbox";
+    toggle.className = "ui-checkbox";
     toggle.dataset.pluginEnabled = "true";
     toggle.checked = enabled;
     toggle.disabled = plugin.inherent;
@@ -172,9 +173,11 @@ export class PluginsPage implements ISettingsPage {
     input.dataset.configKey = key;
     if (BOOLEAN_FIELDS.has(key)) {
       input.type = "checkbox";
+      input.className = "ui-checkbox";
       input.checked = Boolean(value);
     } else {
       input.type = "number";
+      input.className = "ui-control ui-control--small";
       input.min = String(getNumberFieldMinimum(plugin, key));
       input.step = "1";
       input.value = String(typeof value === "number" ? value : 0);

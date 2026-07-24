@@ -16,6 +16,16 @@
 - 删除模型时会同步删除 `ui/dist/live2d/{模型名}` 目录和持久化记录。
 - 默认内置模型不可删除。
 
+## 窗口视觉架构
+
+设置面板和日志控制台使用同一套轻量原生 CSS 设计系统：
+
+- `src/window-theme.css` 只维护颜色、字体、间距、圆角、阴影、动画和标题栏等设计令牌。
+- `src/window-components.css` 维护按钮、表单控件、复选框、滑块、卡片、表格、弹窗和反馈组件。
+- `src/settings.css` 与 `src/logs/logs.css` 只维护页面布局、尺寸约束和业务展示样式。
+
+新增窗口控件时应优先组合 `ui-*` 共享类。页面类可以调整宽度和位置，但不应重新定义同类控件的颜色、字号或 hover、active、focus、disabled 状态。危险操作统一使用 `ui-button--danger`，主要操作使用 `ui-button--primary`，辅助操作使用 `ui-button--secondary`。
+
 说明：首次执行 `npm run dev` 或 `npm run build` 会自动下载 `live2dcubismcore.min.js` 到 `public/`，并自动解压模型资源。
 
 ## 安装

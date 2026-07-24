@@ -92,6 +92,7 @@ export class ToolsPage implements ISettingsPage {
       checkCell.className = "col-check";
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
+      checkbox.className = "ui-checkbox";
       checkbox.dataset.toolName = tool.name;
       checkbox.checked = selectedTools.includes(tool.name);
       checkCell.appendChild(checkbox);

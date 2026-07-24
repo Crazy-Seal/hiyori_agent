@@ -261,7 +261,7 @@ export class MotionPage implements ISettingsPage {
       labelCell.className = "col-label";
       const labelInput = document.createElement("input");
       labelInput.type = "text";
-      labelInput.className = "motion-label-input";
+      labelInput.className = "motion-label-input ui-control ui-control--small";
       labelInput.dataset.motionName = motionName;
       labelInput.value = config.label || "";
       labelInput.disabled = config.setting !== "expression";
@@ -273,7 +273,7 @@ export class MotionPage implements ISettingsPage {
       previewCell.className = "col-preview";
       const previewBtn = document.createElement("button");
       previewBtn.type = "button";
-      previewBtn.className = "motion-preview-btn";
+      previewBtn.className = "motion-preview-btn ui-button ui-button--secondary ui-button--small";
       previewBtn.dataset.motionName = motionName;
       previewBtn.textContent = "播放";
       previewCell.appendChild(previewBtn);
@@ -282,7 +282,7 @@ export class MotionPage implements ISettingsPage {
       const settingCell = document.createElement("td");
       settingCell.className = "col-setting";
       const select = document.createElement("select");
-      select.className = "motion-setting-select";
+      select.className = "motion-setting-select ui-control ui-control--small ui-select";
       select.dataset.motionName = motionName;
 
       const options = [

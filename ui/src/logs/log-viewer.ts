@@ -63,7 +63,7 @@ const renderSide = (side: LogSide): void => {
   const fragment = document.createDocumentFragment();
   if (visibleRecords.length === 0) {
     const empty = document.createElement("div");
-    empty.className = "empty-state";
+    empty.className = "empty-state ui-empty-state";
     empty.textContent = "当前筛选条件下没有日志";
     fragment.append(empty);
   } else {

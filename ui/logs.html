@@ -16,24 +16,24 @@
           <div id="log-status" class="log-status" role="status">正在连接日志流…</div>
         </div>
         <div class="window-actions">
-          <button id="log-min-btn" class="window-btn" type="button" aria-label="最小化">─</button>
-          <button id="log-close-btn" class="window-btn window-btn-close" type="button" aria-label="关闭">✕</button>
+          <button id="log-min-btn" class="window-btn ui-button ui-button--secondary ui-button--icon" type="button" aria-label="最小化">─</button>
+          <button id="log-close-btn" class="window-btn window-btn-close ui-button ui-button--danger ui-button--icon" type="button" aria-label="关闭">✕</button>
         </div>
       </header>
 
       <section class="log-toolbar" aria-label="日志工具栏">
         <label class="search-field">
           <span>搜索</span>
-          <input id="log-search" name="log-search" type="search" autocomplete="off" placeholder="输入关键词筛选两侧日志…" />
+          <input id="log-search" class="ui-control ui-control--small" name="log-search" type="search" autocomplete="off" placeholder="输入关键词筛选两侧日志…" />
         </label>
-        <button id="log-pause-btn" class="toolbar-btn" type="button" aria-pressed="false">暂停刷新</button>
-        <button id="open-log-directory-btn" class="toolbar-btn toolbar-btn-primary" type="button">
+        <button id="log-pause-btn" class="toolbar-btn ui-button ui-button--secondary ui-button--small" type="button" aria-pressed="false">暂停刷新</button>
+        <button id="open-log-directory-btn" class="toolbar-btn toolbar-btn-primary ui-button ui-button--primary ui-button--small" type="button">
           打开日志目录
         </button>
       </section>
 
       <section class="log-panels">
-        <article class="log-panel" data-side="frontend">
+        <article class="log-panel ui-surface" data-side="frontend">
           <header class="panel-header">
             <div>
               <h2>前端日志</h2>
@@ -43,7 +43,7 @@
           </header>
           <div class="panel-controls">
             <label>级别
-              <select id="frontend-level" name="frontend-level">
+              <select id="frontend-level" class="ui-control ui-control--small ui-select" name="frontend-level">
                 <option value="debug">DEBUG</option>
                 <option value="info">INFO</option>
                 <option value="warn">WARNING</option>
@@ -51,22 +51,22 @@
               </select>
             </label>
             <label>来源
-              <select id="frontend-source" name="frontend-source">
+              <select id="frontend-source" class="ui-control ui-control--small ui-select" name="frontend-source">
                 <option value="">全部</option>
                 <option value="electron-main">Electron Main</option>
                 <option value="renderer">Renderer</option>
               </select>
             </label>
             <label class="check-control">
-              <input id="frontend-autoscroll" name="frontend-autoscroll" type="checkbox" checked />
+              <input id="frontend-autoscroll" class="ui-checkbox" name="frontend-autoscroll" type="checkbox" checked />
               自动滚动
             </label>
-            <button id="frontend-clear" class="panel-btn panel-btn-danger" type="button">清空视图</button>
+            <button id="frontend-clear" class="panel-btn panel-btn-danger ui-button ui-button--danger ui-button--small" type="button">清空视图</button>
           </div>
           <div id="frontend-logs" class="log-list" role="log" aria-live="off"></div>
         </article>
 
-        <article class="log-panel" data-side="backend">
+        <article class="log-panel ui-surface" data-side="backend">
           <header class="panel-header">
             <div>
               <h2>后端日志</h2>
@@ -76,7 +76,7 @@
           </header>
           <div class="panel-controls">
             <label>级别
-              <select id="backend-level" name="backend-level">
+              <select id="backend-level" class="ui-control ui-control--small ui-select" name="backend-level">
                 <option value="debug">DEBUG</option>
                 <option value="info">INFO</option>
                 <option value="warn">WARNING</option>
@@ -84,17 +84,17 @@
               </select>
             </label>
             <label>来源
-              <select id="backend-source" name="backend-source">
+              <select id="backend-source" class="ui-control ui-control--small ui-select" name="backend-source">
                 <option value="">全部</option>
                 <option value="stdout">stdout</option>
                 <option value="stderr">stderr</option>
               </select>
             </label>
             <label class="check-control">
-              <input id="backend-autoscroll" name="backend-autoscroll" type="checkbox" checked />
+              <input id="backend-autoscroll" class="ui-checkbox" name="backend-autoscroll" type="checkbox" checked />
               自动滚动
             </label>
-            <button id="backend-clear" class="panel-btn panel-btn-danger" type="button">清空视图</button>
+            <button id="backend-clear" class="panel-btn panel-btn-danger ui-button ui-button--danger ui-button--small" type="button">清空视图</button>
           </div>
           <div id="backend-logs" class="log-list" role="log" aria-live="off"></div>
         </article>

@@ -13,13 +13,13 @@
       <header class="settings-titlebar">
         <div class="settings-title">设置面板</div>
         <div class="window-actions">
-          <button id="settings-min-btn" class="window-btn" type="button" aria-label="最小化">─</button>
-          <button id="settings-close-btn" class="window-btn window-btn-close" type="button" aria-label="关闭">✕</button>
+          <button id="settings-min-btn" class="window-btn ui-button ui-button--secondary ui-button--icon" type="button" aria-label="最小化">─</button>
+          <button id="settings-close-btn" class="window-btn window-btn-close ui-button ui-button--danger ui-button--icon" type="button" aria-label="关闭">✕</button>
         </div>
       </header>
       <div
         id="settings-toast"
-        class="settings-toast"
+        class="settings-toast ui-toast"
         role="status"
         aria-live="polite"
         aria-atomic="true"
@@ -32,18 +32,18 @@
       </div>
       <div class="settings-layout">
         <aside class="settings-sidebar" id="settings-sidebar">
-          <button class="settings-tab active" type="button" data-page="model">模型管理</button>
-          <button class="settings-tab" type="button" data-page="llm">LLM配置</button>
-          <button class="settings-tab" type="button" data-page="motion">表情控制</button>
-          <button class="settings-tab" type="button" data-page="memory">插件管理</button>
-          <button class="settings-tab" type="button" data-page="contextStrategy">上下文策略</button>
-          <button class="settings-tab" type="button" data-page="tools">工具调用</button>
-          <button class="settings-tab" type="button" data-page="mcp">MCP</button>
-          <button class="settings-tab" type="button" data-page="multimodal">多模态</button>
+          <button class="settings-tab ui-nav-item active" type="button" data-page="model">模型管理</button>
+          <button class="settings-tab ui-nav-item" type="button" data-page="llm">LLM配置</button>
+          <button class="settings-tab ui-nav-item" type="button" data-page="motion">表情控制</button>
+          <button class="settings-tab ui-nav-item" type="button" data-page="memory">插件管理</button>
+          <button class="settings-tab ui-nav-item" type="button" data-page="contextStrategy">上下文策略</button>
+          <button class="settings-tab ui-nav-item" type="button" data-page="tools">工具调用</button>
+          <button class="settings-tab ui-nav-item" type="button" data-page="mcp">MCP</button>
+          <button class="settings-tab ui-nav-item" type="button" data-page="multimodal">多模态</button>
           <div class="settings-utility-section">
             <button
               id="open-log-window-btn"
-              class="settings-log-btn"
+              class="settings-log-btn ui-button ui-button--secondary ui-button--small"
               type="button"
               aria-label="打开日志控制台"
               title="打开日志控制台"
@@ -64,31 +64,31 @@
         <section class="settings-content">
           <div class="settings-page active" data-page="model">
             <div class="model-manager">
-              <button id="import-model-btn" class="import-model-btn" type="button">导入模型文件夹</button>
-              <div class="transform-controls">
+              <button id="import-model-btn" class="import-model-btn ui-button ui-button--primary ui-button--medium" type="button">导入模型文件夹</button>
+              <div class="transform-controls ui-surface">
                 <label class="slider-row" for="slider-offset-x">
                   <span>水平位置</span>
-                  <input id="slider-offset-x" type="range" min="-220" max="220" step="1" value="0" />
+                  <input id="slider-offset-x" class="ui-range" type="range" min="-220" max="220" step="1" value="0" />
                   <span id="slider-offset-x-value">0</span>
                 </label>
                 <label class="slider-row" for="slider-offset-y">
                   <span>垂直位置</span>
-                  <input id="slider-offset-y" type="range" min="-500" max="1000" step="1" value="0" />
+                  <input id="slider-offset-y" class="ui-range" type="range" min="-500" max="1000" step="1" value="0" />
                   <span id="slider-offset-y-value">0</span>
                 </label>
                 <label class="checkbox-row" for="checkbox-follow-cursor">
                   <span>视线跟随光标</span>
-                  <input id="checkbox-follow-cursor" type="checkbox" checked />
+                  <input id="checkbox-follow-cursor" class="ui-checkbox" type="checkbox" checked />
                 </label>
               </div>
-              <div id="import-preview" class="import-preview" hidden>
+              <div id="import-preview" class="import-preview ui-surface" hidden>
                 <div class="preview-title">导入预览</div>
                 <div id="preview-name" class="preview-line"></div>
                 <div id="preview-type" class="preview-line"></div>
                 <div id="preview-entry" class="preview-line"></div>
                 <div class="preview-actions">
-                  <button id="confirm-import-btn" class="preview-btn" type="button">确认导入</button>
-                  <button id="cancel-import-btn" class="preview-btn preview-btn-ghost" type="button">取消</button>
+                  <button id="confirm-import-btn" class="preview-btn ui-button ui-button--primary ui-button--small" type="button">确认导入</button>
+                  <button id="cancel-import-btn" class="preview-btn preview-btn-ghost ui-button ui-button--secondary ui-button--small" type="button">取消</button>
                 </div>
               </div>
               <div id="model-list" class="model-list"></div>
@@ -98,15 +98,15 @@
             <div class="llm-config-panel">
               <label class="llm-field">
                 <span>URL</span>
-                <input id="llm-base-url" type="text" placeholder="请输入模型服务 URL" />
+                <input id="llm-base-url" class="ui-control" type="text" placeholder="请输入模型服务 URL" />
               </label>
               <div class="llm-field">
                 <label for="llm-api-key">API Key</label>
                 <div class="secret-input-wrap">
-                  <input id="llm-api-key" name="openai_api_key" type="password" autocomplete="off" placeholder="请输入 API Key" />
+                  <input id="llm-api-key" class="ui-control" name="openai_api_key" type="password" autocomplete="off" placeholder="请输入 API Key" />
                   <button
                     id="llm-api-key-reveal"
-                    class="secret-reveal-btn"
+                    class="secret-reveal-btn ui-button ui-button--secondary ui-button--icon"
                     type="button"
                     aria-label="按住显示 API Key"
                     title="按住显示 API Key"
@@ -121,11 +121,11 @@
               <div class="llm-row-two">
                 <label class="llm-field llm-field-main">
                   <span>模型名称</span>
-                  <input id="llm-model-name" type="text" placeholder="请输入模型名称" />
+                  <input id="llm-model-name" class="ui-control" type="text" placeholder="请输入模型名称" />
                 </label>
                 <label class="llm-field llm-field-side">
                   <span>模型温度</span>
-                  <input id="llm-temperature" type="number" step="0.1" min="0" max="2" placeholder="0.7" />
+                  <input id="llm-temperature" class="ui-control" type="number" step="0.1" min="0" max="2" placeholder="0.7" />
                 </label>
               </div>
               <div class="llm-divider"></div>
@@ -134,41 +134,41 @@
                 <div class="llm-row-two">
                   <label class="llm-field llm-field-main">
                     <span>AI名字</span>
-                    <input id="llm-name" type="text" placeholder="日和" />
+                    <input id="llm-name" class="ui-control" type="text" placeholder="日和" />
                   </label>
                   <label class="llm-field llm-field-side">
                     <span>对用户称呼</span>
-                    <input id="llm-address" type="text" placeholder="主人" />
+                    <input id="llm-address" class="ui-control" type="text" placeholder="主人" />
                   </label>
                 </div>
                 <label class="llm-field">
                   <span>性格特点</span>
-                  <input id="llm-feature" type="text" placeholder="可爱" />
+                  <input id="llm-feature" class="ui-control" type="text" placeholder="可爱" />
                 </label>
                 <label class="llm-field">
                   <span>人设</span>
-                  <input id="llm-character" type="text" placeholder="AI少女" />
+                  <input id="llm-character" class="ui-control" type="text" placeholder="AI少女" />
                 </label>
                 <label class="llm-field llm-field-multiline">
                   <span>详细性格</span>
-                  <textarea id="llm-characteristic" placeholder="拥有自己的情绪，会随着聊天氛围而变化，会哭、会笑、会撒娇"></textarea>
+                  <textarea id="llm-characteristic" class="ui-control" placeholder="拥有自己的情绪，会随着聊天氛围而变化，会哭、会笑、会撒娇"></textarea>
                 </label>
                 <label class="llm-field llm-field-multiline">
                   <span>发言约束</span>
-                  <textarea id="llm-constraint" placeholder="回复时不要使用AI的语气，不要带有任何的emoji，也不要用markdown格式"></textarea>
+                  <textarea id="llm-constraint" class="ui-control" placeholder="回复时不要使用AI的语气，不要带有任何的emoji，也不要用markdown格式"></textarea>
                 </label>
               </div>
               <label class="llm-field llm-field-multiline llm-field-readonly">
                 <span>系统提示词预览</span>
-                <textarea id="llm-system-prompt" readonly placeholder="根据上方设置自动生成"></textarea>
+                <textarea id="llm-system-prompt" class="ui-control" readonly placeholder="根据上方设置自动生成"></textarea>
               </label>
-              <button id="llm-confirm-btn" type="button" class="llm-confirm-btn">确认</button>
+              <button id="llm-confirm-btn" type="button" class="llm-confirm-btn ui-button ui-button--primary ui-button--medium">确认</button>
             </div>
           </div>
           <div class="settings-page" data-page="motion">
             <div class="motion-panel">
-              <div class="motion-table-wrap">
-                <table class="motion-table">
+              <div class="motion-table-wrap ui-surface">
+                <table class="motion-table ui-table">
                   <thead>
                     <tr>
                       <th class="col-name">动作名称</th>
@@ -179,51 +179,51 @@
                   </thead>
                   <tbody id="motion-table-body"></tbody>
                 </table>
-                <div id="motion-empty" class="motion-empty" hidden>当前模型无动作数据</div>
+                <div id="motion-empty" class="motion-empty ui-empty-state" hidden>当前模型无动作数据</div>
               </div>
               <label class="llm-field llm-field-multiline llm-field-readonly motion-prompt-preview">
                 <span>系统提示词预览（含表情标签）</span>
-                <textarea id="motion-system-prompt" readonly placeholder="配置表情标签后，提示词将在此显示"></textarea>
+                <textarea id="motion-system-prompt" class="ui-control" readonly placeholder="配置表情标签后，提示词将在此显示"></textarea>
               </label>
-              <button id="motion-confirm-btn" type="button" class="motion-confirm-btn">保存配置</button>
+              <button id="motion-confirm-btn" type="button" class="motion-confirm-btn ui-button ui-button--primary ui-button--medium">保存配置</button>
             </div>
           </div>
           <div class="settings-page" data-page="memory">
             <div class="plugins-panel">
               <div id="plugins-list" class="plugins-list"></div>
-              <div id="plugins-empty" class="plugins-empty" hidden>未发现可用插件</div>
-              <button id="plugins-confirm-btn" type="button" class="plugins-confirm-btn">保存插件配置</button>
+              <div id="plugins-empty" class="plugins-empty ui-empty-state" hidden>未发现可用插件</div>
+              <button id="plugins-confirm-btn" type="button" class="plugins-confirm-btn ui-button ui-button--primary ui-button--medium">保存插件配置</button>
             </div>
           </div>
           <div class="settings-page" data-page="contextStrategy">
             <div class="llm-config-panel">
               <label class="llm-field">
                 <span>上下文消息轮数</span>
-                <input id="context-recent-human-messages" type="number" min="1" step="1" />
+                <input id="context-recent-human-messages" class="ui-control" type="number" min="1" step="1" />
               </label>
               <label class="llm-field">
                 <span>上下文最大图片数</span>
-                <input id="context-max-images" type="number" min="0" step="1" />
+                <input id="context-max-images" class="ui-control" type="number" min="0" step="1" />
               </label>
               <label class="llm-field">
                 <span>图片 TTL</span>
-                <input id="context-image-ttl" type="number" min="0" step="1" />
+                <input id="context-image-ttl" class="ui-control" type="number" min="0" step="1" />
               </label>
               <label class="llm-field">
                 <span>上下文最大截图数</span>
-                <input id="context-max-screenshots" type="number" min="0" step="1" />
+                <input id="context-max-screenshots" class="ui-control" type="number" min="0" step="1" />
               </label>
               <label class="llm-field">
                 <span>截图 TTL</span>
-                <input id="context-screenshot-ttl" type="number" min="0" step="1" />
+                <input id="context-screenshot-ttl" class="ui-control" type="number" min="0" step="1" />
               </label>
-              <button id="context-strategy-confirm-btn" type="button" class="llm-confirm-btn">保存上下文策略</button>
+              <button id="context-strategy-confirm-btn" type="button" class="llm-confirm-btn ui-button ui-button--primary ui-button--medium">保存上下文策略</button>
             </div>
           </div>
           <div class="settings-page" data-page="tools">
             <div class="tools-panel">
-              <div class="tools-table-wrap">
-                <table class="tools-table">
+              <div class="tools-table-wrap ui-surface">
+                <table class="tools-table ui-table">
                   <thead>
                     <tr>
                       <th class="col-check">启用</th>
@@ -232,9 +232,9 @@
                   </thead>
                   <tbody id="tools-table-body"></tbody>
                 </table>
-                <div id="tools-empty" class="tools-empty" hidden>未发现可用工具</div>
+                <div id="tools-empty" class="tools-empty ui-empty-state" hidden>未发现可用工具</div>
               </div>
-              <button id="tools-confirm-btn" type="button" class="tools-confirm-btn">确认</button>
+              <button id="tools-confirm-btn" type="button" class="tools-confirm-btn ui-button ui-button--primary ui-button--medium">确认</button>
             </div>
           </div>
           <div class="settings-page" data-page="mcp">
@@ -244,36 +244,36 @@
                   <h2>MCP 服务</h2>
                   <p>全局管理连接，并为当前模型分配工具权限。</p>
                 </div>
-                <button id="mcp-add-btn" type="button" class="mcp-primary-btn">添加服务</button>
+                <button id="mcp-add-btn" type="button" class="mcp-primary-btn ui-button ui-button--primary ui-button--medium">添加服务</button>
               </div>
               <div id="mcp-server-list" class="mcp-server-list"></div>
-              <div id="mcp-empty" class="page-placeholder">尚未配置 MCP 服务</div>
-              <button id="mcp-policy-save-btn" type="button" class="mcp-primary-btn">保存当前模型权限</button>
+              <div id="mcp-empty" class="page-placeholder ui-empty-state">尚未配置 MCP 服务</div>
+              <button id="mcp-policy-save-btn" type="button" class="mcp-policy-save-btn mcp-primary-btn ui-button ui-button--primary ui-button--medium">保存当前模型权限</button>
 
-              <form id="mcp-editor" class="mcp-editor" hidden>
+              <form id="mcp-editor" class="mcp-editor ui-surface" hidden>
                 <h3 id="mcp-editor-title">添加 MCP 服务</h3>
                 <div class="mcp-form-grid">
-                  <label>ID<input id="mcp-id" required maxlength="32" pattern="[A-Za-z0-9_-]+" /></label>
-                  <label>名称<input id="mcp-name" required maxlength="100" /></label>
-                  <label>传输<select id="mcp-transport"><option value="stdio">stdio</option><option value="streamable_http">Streamable HTTP</option></select></label>
-                  <label class="mcp-checkbox"><input id="mcp-enabled" type="checkbox" />启用并连接</label>
-                  <label>连接超时（秒）<input id="mcp-connect-timeout" type="number" min="1" max="300" value="15" /></label>
-                  <label>调用超时（秒）<input id="mcp-call-timeout" type="number" min="1" max="3600" value="60" /></label>
+                  <label>ID<input id="mcp-id" class="ui-control" required maxlength="32" pattern="[A-Za-z0-9_-]+" /></label>
+                  <label>名称<input id="mcp-name" class="ui-control" required maxlength="100" /></label>
+                  <label>传输<select id="mcp-transport" class="ui-control ui-select"><option value="stdio">stdio</option><option value="streamable_http">Streamable HTTP</option></select></label>
+                  <label class="mcp-checkbox"><input id="mcp-enabled" class="ui-checkbox" type="checkbox" />启用并连接</label>
+                  <label>连接超时（秒）<input id="mcp-connect-timeout" class="ui-control" type="number" min="1" max="300" value="15" /></label>
+                  <label>调用超时（秒）<input id="mcp-call-timeout" class="ui-control" type="number" min="1" max="3600" value="60" /></label>
                 </div>
                 <div id="mcp-stdio-fields">
-                  <label>命令<input id="mcp-command" /></label>
-                  <label>参数（每行一个）<textarea id="mcp-args"></textarea></label>
-                  <label>工作目录（可选）<input id="mcp-cwd" /></label>
-                  <div><span>环境变量</span><div id="mcp-env-rows" class="mcp-secret-rows"></div><button id="mcp-add-env" type="button">添加环境变量</button></div>
+                  <label>命令<input id="mcp-command" class="ui-control" /></label>
+                  <label>参数（每行一个）<textarea id="mcp-args" class="ui-control"></textarea></label>
+                  <label>工作目录（可选）<input id="mcp-cwd" class="ui-control" /></label>
+                  <div><span>环境变量</span><div id="mcp-env-rows" class="mcp-secret-rows"></div><button id="mcp-add-env" class="ui-button ui-button--secondary ui-button--small" type="button">添加环境变量</button></div>
                 </div>
                 <div id="mcp-http-fields" hidden>
-                  <label>Endpoint<input id="mcp-url" placeholder="https://example.com/mcp" /></label>
-                  <div><span>Headers</span><div id="mcp-header-rows" class="mcp-secret-rows"></div><button id="mcp-add-header" type="button">添加 Header</button></div>
+                  <label>Endpoint<input id="mcp-url" class="ui-control" placeholder="https://example.com/mcp" /></label>
+                  <div><span>Headers</span><div id="mcp-header-rows" class="mcp-secret-rows"></div><button id="mcp-add-header" class="ui-button ui-button--secondary ui-button--small" type="button">添加 Header</button></div>
                 </div>
                 <div class="mcp-editor-actions">
-                  <button id="mcp-test-btn" type="button">测试连接</button>
-                  <button id="mcp-save-btn" type="submit" class="mcp-primary-btn">保存</button>
-                  <button id="mcp-cancel-btn" type="button">取消</button>
+                  <button id="mcp-test-btn" class="ui-button ui-button--secondary ui-button--small" type="button">测试连接</button>
+                  <button id="mcp-save-btn" type="submit" class="mcp-primary-btn ui-button ui-button--primary ui-button--small">保存</button>
+                  <button id="mcp-cancel-btn" class="ui-button ui-button--secondary ui-button--small" type="button">取消</button>
                 </div>
                 <div id="mcp-test-result" class="mcp-test-result" hidden></div>
               </form>
@@ -281,11 +281,11 @@
           </div>
           <div class="settings-page" data-page="multimodal">
             <div class="multimodal-panel">
-              <div class="multimodal-section">
+              <div class="multimodal-section ui-surface">
                 <div class="multimodal-section-title">截图设置</div>
                 <label class="checkbox-row" for="checkbox-hide-on-screenshot">
                   <span>操作屏幕或截屏时隐藏界面</span>
-                  <input id="checkbox-hide-on-screenshot" type="checkbox" checked />
+                  <input id="checkbox-hide-on-screenshot" class="ui-checkbox" type="checkbox" checked />
                 </label>
                 <div class="multimodal-hint">开启后，截屏和屏幕操作时会暂时隐藏 Live2D 模型、对话框和聊天界面</div>
               </div>
@@ -294,7 +294,7 @@
         </section>
       </div>
       <div id="delete-confirm-dialog" class="confirm-overlay" hidden aria-hidden="true">
-        <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title">
+        <div class="confirm-modal ui-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title">
           <div class="confirm-header">
             <div class="confirm-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
@@ -305,8 +305,8 @@
           </div>
           <div id="delete-confirm-message" class="confirm-message">将删除该模型所有的配置文件和会话记忆，请谨慎操作</div>
           <div class="confirm-actions">
-            <button id="delete-confirm-cancel" type="button" class="confirm-btn confirm-btn-ghost">取消</button>
-            <button id="delete-confirm-ok" type="button" class="confirm-btn confirm-btn-danger">确认删除</button>
+            <button id="delete-confirm-cancel" type="button" class="confirm-btn confirm-btn-ghost ui-button ui-button--secondary ui-button--small">取消</button>
+            <button id="delete-confirm-ok" type="button" class="confirm-btn confirm-btn-danger ui-button ui-button--danger ui-button--small">确认删除</button>
           </div>
         </div>
       </div>

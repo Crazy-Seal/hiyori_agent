@@ -66,6 +66,7 @@ test("确认框可动态展示 HTTP 风险警告", async () => {
   assert.match(message.textContent, /http:\/\/example\.com\/v1/);
   assert.equal(ok.textContent, "仍然保存");
   assert.equal(ok.classList.contains("confirm-btn-warning"), true);
+  assert.equal(ok.classList.contains("ui-button--warning"), true);
 
   ok.dispatchEvent(new Event("click"));
   assert.equal(await result, true);
@@ -84,6 +85,8 @@ test("确认框取消时返回 false，并切换回危险操作样式", async ()
 
   assert.equal(ok.classList.contains("confirm-btn-danger"), true);
   assert.equal(ok.classList.contains("confirm-btn-warning"), false);
+  assert.equal(ok.classList.contains("ui-button--danger"), true);
+  assert.equal(ok.classList.contains("ui-button--warning"), false);
   cancel.dispatchEvent(new Event("click"));
   assert.equal(await result, false);
 });

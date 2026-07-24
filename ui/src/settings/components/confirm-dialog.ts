@@ -88,8 +88,14 @@ export class ConfirmDialog {
     this.message.textContent = options.message;
     this.cancelBtn.textContent = options.cancelText;
     this.okBtn.textContent = options.confirmText;
-    this.okBtn.classList.remove("confirm-btn-danger", "confirm-btn-warning");
+    this.okBtn.classList.remove(
+      "confirm-btn-danger",
+      "confirm-btn-warning",
+      "ui-button--danger",
+      "ui-button--warning",
+    );
     this.okBtn.classList.add(`confirm-btn-${options.variant}`);
+    this.okBtn.classList.add(`ui-button--${options.variant}`);
     this.dialog.hidden = false;
     this.dialog.setAttribute("aria-hidden", "false");
     return new Promise<boolean>((resolve) => {

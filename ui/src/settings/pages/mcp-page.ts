@@ -115,7 +115,7 @@ export class McpPage implements ISettingsPage {
    */
   private createServerCard(server: MCPServerView): HTMLDivElement {
     const card = document.createElement("div");
-    card.className = "mcp-server-card";
+    card.className = "mcp-server-card ui-surface";
     const header = document.createElement("div");
     header.className = "mcp-server-header";
     const title = document.createElement("div");
@@ -149,7 +149,13 @@ export class McpPage implements ISettingsPage {
     if (server.config.enabled) {
       actions.append(this.actionButton("重连", () => void this.reconnect(server.config.id)));
     }
-    actions.append(this.actionButton("删除", () => void this.remove(server.config.id, server.config.name)));
+    actions.append(
+      this.actionButton(
+        "删除",
+        () => void this.remove(server.config.id, server.config.name),
+        "danger",
+      ),
+    );
     card.append(actions, this.createPolicyPanel(server));
     return card;
   }
@@ -166,6 +172,7 @@ export class McpPage implements ISettingsPage {
     const toggleLabel = document.createElement("label");
     const toggle = document.createElement("input");
     toggle.type = "checkbox";
+    toggle.className = "ui-checkbox";
     toggle.checked = Boolean(this.policies.servers[server.config.id]?.enabled);
     toggleLabel.append(toggle, document.createTextNode("当前模型启用此服务"));
     panel.append(toggleLabel);
@@ -180,6 +187,7 @@ export class McpPage implements ISettingsPage {
         const row = document.createElement("label");
         row.textContent = tool.name;
         const select = document.createElement("select");
+        select.className = "ui-control ui-control--small ui-select";
         for (const value of ["allow", "ask", "deny"] as MCPToolPolicy[]) {
           const option = document.createElement("option");
           option.value = value;
@@ -224,9 +232,14 @@ export class McpPage implements ISettingsPage {
    * @param action - 点击按钮时执行的操作。
    * @returns 已绑定点击事件的按钮元素。
    */
-  private actionButton(label: string, action: () => void): HTMLButtonElement {
+  private actionButton(
+    label: string,
+    action: () => void,
+    variant: "secondary" | "danger" = "secondary",
+  ): HTMLButtonElement {
     const button = document.createElement("button");
     button.type = "button";
+    button.className = `ui-button ui-button--${variant} ui-button--small`;
     button.textContent = label;
     button.addEventListener("click", action);
     return button;
@@ -304,9 +317,11 @@ export class McpPage implements ISettingsPage {
     const element = document.createElement("div");
     element.className = "mcp-secret-row";
     const key = document.createElement("input");
+    key.className = "ui-control ui-control--small";
     key.placeholder = kind === "env" ? "VARIABLE" : "Header-Name";
     key.value = initialKey;
     const value = document.createElement("input");
+    value.className = "ui-control ui-control--small";
     value.type = "password";
     value.placeholder = "值";
     value.value = initialValue;
@@ -324,7 +339,7 @@ export class McpPage implements ISettingsPage {
       element.remove();
       rows.splice(rows.indexOf(row), 1);
       this.testedFingerprint = null;
-    });
+    }, "danger");
     element.append(key, value, reveal, remove);
     this.q<HTMLDivElement>(kind === "env" ? "#mcp-env-rows" : "#mcp-header-rows").append(element);
     rows.push(row);

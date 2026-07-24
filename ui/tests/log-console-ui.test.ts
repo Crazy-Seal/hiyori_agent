@@ -30,19 +30,21 @@ test("日志窗口复用设置标题栏并使用阈值级别选项", () => {
   assert.match(html, /<option value="info">INFO<\/option>/);
   assert.match(html, /<option value="warn">WARNING<\/option>/);
   assert.match(html, /<option value="error">ERROR<\/option>/);
-  assert.match(html, /class="panel-btn panel-btn-danger"/);
+  assert.match(html, /class="panel-btn panel-btn-danger[^"]*ui-button--danger/);
 });
 
 test("设置页与日志页共同使用窗口视觉基础样式", () => {
   const sharedCss = readUiFile("src/window-theme.css");
+  const componentsCss = readUiFile("src/window-components.css");
   const settingsCss = readUiFile("src/settings.css");
   const logsCss = readUiFile("src/logs/logs.css");
 
-  assert.match(settingsCss, /@import "\.\/window-theme\.css";/);
-  assert.match(logsCss, /@import "\.\.\/window-theme\.css";/);
+  assert.match(settingsCss, /@import "\.\/window-components\.css";/);
+  assert.match(logsCss, /@import "\.\.\/window-components\.css";/);
+  assert.match(componentsCss, /@import "\.\/window-theme\.css";/);
   assert.match(sharedCss, /color-scheme:\s*dark/);
-  assert.match(sharedCss, /\.window-btn:active/);
-  assert.match(sharedCss, /:focus-visible/);
+  assert.match(componentsCss, /\.ui-button:active/);
+  assert.match(componentsCss, /:focus-visible/);
   assert.match(sharedCss, /@media \(prefers-reduced-motion: reduce\)/);
   assert.doesNotMatch(logsCss, /--color-primary:/);
 });
