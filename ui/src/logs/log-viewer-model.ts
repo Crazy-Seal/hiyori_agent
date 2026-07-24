@@ -12,6 +12,13 @@ export interface LogFilter {
   sources: ReadonlySet<LogSource>;
 }
 
+export interface LogModelDelta {
+  added: LogRecord[];
+  removed: LogRecord[];
+}
+
+const EMPTY_DELTA = (): LogModelDelta => ({ added: [], removed: [] });
+
 const LOG_LEVEL_RANK: Record<LogLevel, number> = {
   debug: 0,
   info: 1,
@@ -31,21 +38,22 @@ export class LogViewerModel {
     };
   }
 
-  append(incoming: readonly LogRecord[]): void {
+  append(incoming: readonly LogRecord[]): LogModelDelta {
     if (this.paused) {
       this.pending.push(...incoming);
-      return;
+      return EMPTY_DELTA();
     }
-    this.apply(incoming);
+    return this.apply(incoming);
   }
 
-  setPaused(paused: boolean): void {
-    if (this.paused === paused) return;
+  setPaused(paused: boolean): LogModelDelta {
+    if (this.paused === paused) return EMPTY_DELTA();
     this.paused = paused;
     if (!paused && this.pending.length > 0) {
       const pending = this.pending.splice(0);
-      this.apply(pending);
+      return this.apply(pending);
     }
+    return EMPTY_DELTA();
   }
 
   isPaused(): boolean {
@@ -64,15 +72,20 @@ export class LogViewerModel {
   }
 
   filter(side: LogSide, filter: LogFilter): LogRecord[] {
+    return this.records[side].filter((record) => this.matches(record, filter));
+  }
+
+  matches(record: LogRecord, filter: LogFilter): boolean {
     const query = filter.query.trim().toLocaleLowerCase();
-    return this.records[side].filter((record) => (
+    return (
       LOG_LEVEL_RANK[record.level] >= LOG_LEVEL_RANK[filter.minimumLevel]
       && (filter.sources.size === 0 || filter.sources.has(record.source))
       && (!query || `${record.scope} ${record.message}`.toLocaleLowerCase().includes(query))
-    ));
+    );
   }
 
-  private apply(incoming: readonly LogRecord[]): void {
+  private apply(incoming: readonly LogRecord[]): LogModelDelta {
+    const delta = EMPTY_DELTA();
     const knownIds = new Set([
       ...this.records.frontend.map((record) => record.id),
       ...this.records.backend.map((record) => record.id),
@@ -82,9 +95,11 @@ export class LogViewerModel {
       knownIds.add(record.id);
       const sideRecords = this.records[record.side];
       sideRecords.push(record);
+      delta.added.push(record);
       if (sideRecords.length > this.limit) {
-        sideRecords.splice(0, sideRecords.length - this.limit);
+        delta.removed.push(...sideRecords.splice(0, sideRecords.length - this.limit));
       }
     }
+    return delta;
   }
 }

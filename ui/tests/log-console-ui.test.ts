@@ -48,3 +48,22 @@ test("设置页与日志页共同使用窗口视觉基础样式", () => {
   assert.match(sharedCss, /@media \(prefers-reduced-motion: reduce\)/);
   assert.doesNotMatch(logsCss, /--color-primary:/);
 });
+
+test("日志列表使用可聚焦底部锚点和增量渲染而非每批整表重建", () => {
+  const html = readUiFile("logs.html");
+  const viewer = readUiFile("src/logs/log-viewer.ts");
+  const css = readUiFile("src/logs/logs.css");
+
+  assert.match(html, /id="frontend-logs"[^>]*tabindex="0"/);
+  assert.match(html, /id="backend-logs"[^>]*tabindex="0"/);
+  assert.match(viewer, /appendIncomingRecords/);
+  assert.match(viewer, /syncEmptyState/);
+  assert.match(viewer, /dataset\.recordId/);
+  assert.match(viewer, /log-bottom-anchor/);
+  assert.doesNotMatch(
+    viewer,
+    /model\?\.append\(batch\.records\);\s*if \(!model\?\.isPaused\(\)\) renderAll\(\);/,
+  );
+  assert.doesNotMatch(css, /content-visibility:\s*auto/);
+  assert.doesNotMatch(css, /contain-intrinsic-size:/);
+});

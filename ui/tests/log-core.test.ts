@@ -74,6 +74,45 @@ test("LogHub 保留分侧环形缓存、批量发布并支持清空视图", asyn
   await hub.close();
 });
 
+test("LogHub 立即逐条发布后端日志并继续批量发布前端日志", async () => {
+  const batches: LogBatch[] = [];
+  const hub = new LogHub({
+    batchIntervalMs: 20,
+    immediateSides: ["backend"],
+  });
+  hub.subscribe((batch) => batches.push(batch));
+
+  hub.append({
+    side: "frontend",
+    source: "electron-main",
+    level: "info",
+    scope: "test",
+    message: "frontend-one",
+  });
+  for (const message of ["backend-one", "backend-two", "backend-three"]) {
+    hub.append({
+      side: "backend",
+      source: "stderr",
+      level: "info",
+      scope: "test",
+      message,
+    });
+  }
+
+  assert.deepEqual(
+    batches.map((batch) => batch.records.map((item) => item.message)),
+    [["backend-one"], ["backend-two"], ["backend-three"]],
+  );
+
+  await new Promise((resolve) => setTimeout(resolve, 40));
+
+  assert.deepEqual(
+    batches.map((batch) => batch.records.map((item) => item.message)),
+    [["backend-one"], ["backend-two"], ["backend-three"], ["frontend-one"]],
+  );
+  await hub.close();
+});
+
 test("清空视图会移除尚未发布的同侧批次", async () => {
   const batches: LogBatch[] = [];
   const hub = new LogHub({ batchIntervalMs: 1 });

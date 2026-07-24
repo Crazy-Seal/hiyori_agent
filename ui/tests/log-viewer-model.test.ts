@@ -25,19 +25,23 @@ test("查看器合并快照和实时批次时按 ID 去重并限制记录数", (
     backend: [],
   }, 2);
 
-  model.append([record(2, "frontend"), record(3, "frontend")]);
+  const delta = model.append([record(2, "frontend"), record(3, "frontend")]);
 
   assert.deepEqual(model.getRecords("frontend").map((item) => item.id), [2, 3]);
+  assert.deepEqual(delta.added.map((item) => item.id), [3]);
+  assert.deepEqual(delta.removed.map((item) => item.id), [1]);
 });
 
 test("暂停期间保留新日志，继续后一次性应用", () => {
   const model = new LogViewerModel({ frontend: [], backend: [] }, 10);
   model.setPaused(true);
-  model.append([record(1, "backend")]);
+  const pausedDelta = model.append([record(1, "backend")]);
   assert.deepEqual(model.getRecords("backend"), []);
+  assert.deepEqual(pausedDelta, { added: [], removed: [] });
 
-  model.setPaused(false);
+  const resumedDelta = model.setPaused(false);
   assert.deepEqual(model.getRecords("backend").map((item) => item.id), [1]);
+  assert.deepEqual(resumedDelta.added.map((item) => item.id), [1]);
 });
 
 test("暂停期间清空视图不会在继续时恢复已清除日志", () => {

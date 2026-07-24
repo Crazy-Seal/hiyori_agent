@@ -18,6 +18,7 @@ interface LogHubOptions {
   bufferLimit?: number;
   batchIntervalMs?: number;
   maxMessageBytes?: number;
+  immediateSides?: readonly LogSide[];
   now?: () => Date;
 }
 
@@ -127,6 +128,7 @@ export class LogHub {
   private readonly bufferLimit: number;
   private readonly batchIntervalMs: number;
   private readonly maxMessageBytes: number;
+  private readonly immediateSides: ReadonlySet<LogSide>;
   private readonly now: () => Date;
   private readonly writers: Partial<Record<LogSide, LogWriter>> = {};
   private pendingBatch: LogRecord[] = [];
@@ -138,6 +140,7 @@ export class LogHub {
     this.bufferLimit = options.bufferLimit ?? DEFAULT_BUFFER_LIMIT;
     this.batchIntervalMs = options.batchIntervalMs ?? DEFAULT_BATCH_INTERVAL_MS;
     this.maxMessageBytes = options.maxMessageBytes ?? DEFAULT_MAX_MESSAGE_BYTES;
+    this.immediateSides = new Set(options.immediateSides ?? []);
     this.now = options.now ?? (() => new Date());
   }
 
@@ -171,9 +174,6 @@ export class LogHub {
     if (buffer.length > this.bufferLimit) {
       buffer.splice(0, buffer.length - this.bufferLimit);
     }
-    this.pendingBatch.push(record);
-    this.scheduleBatch();
-
     const writer = this.writers[input.side];
     if (writer) {
       const prefix = `${record.timestamp} ${record.level.toUpperCase().padEnd(5)} `
@@ -183,6 +183,13 @@ export class LogHub {
         .map((line) => `${prefix}${line}`)
         .join("\n")}\n`;
       void Promise.resolve(writer.write(content)).catch(() => undefined);
+    }
+
+    if (this.immediateSides.has(record.side)) {
+      this.publishRecords([record]);
+    } else {
+      this.pendingBatch.push(record);
+      this.scheduleBatch();
     }
     return record;
   }
@@ -231,8 +238,13 @@ export class LogHub {
 
   private publishBatch(): void {
     if (this.pendingBatch.length === 0) return;
-    const batch = { records: this.pendingBatch };
+    const records = this.pendingBatch;
     this.pendingBatch = [];
+    this.publishRecords(records);
+  }
+
+  private publishRecords(records: LogRecord[]): void {
+    const batch = { records };
     for (const subscriber of this.subscribers) {
       try {
         subscriber(batch);

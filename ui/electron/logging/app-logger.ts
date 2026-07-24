@@ -14,7 +14,7 @@ import { RollingLogWriter } from "./rolling-log-writer.js";
 const MAX_LOG_BYTES = 10 * 1024 * 1024;
 const MAX_LOG_FILES = 5;
 const rawStderrWrite = process.stderr.write.bind(process.stderr);
-const logHub = new LogHub();
+const logHub = new LogHub({ immediateSides: ["backend"] });
 let logDirectory = "";
 
 const describeError = (error: unknown): string => {
