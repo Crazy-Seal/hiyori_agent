@@ -112,8 +112,8 @@ export const setSettingsWindow = (win: BrowserWindow | null): void => {
 export const createMainWindow = (): BrowserWindow => {
   const display = screen.getPrimaryDisplay();
   const { x, y, width, height } = display.workArea;
-  const windowX = x + width - WINDOW_WIDTH - 20;
-  const windowY = y + height - WINDOW_HEIGHT - 20;
+  const windowX = x + width - WINDOW_WIDTH;
+  const windowY = y + height - WINDOW_HEIGHT;
 
   const win = new BrowserWindow({
     width: WINDOW_WIDTH,
