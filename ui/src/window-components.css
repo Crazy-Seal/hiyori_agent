@@ -45,6 +45,11 @@ button {
     opacity var(--transition-fast);
 }
 
+.ui-button[hidden],
+.ui-empty-state[hidden] {
+  display: none !important;
+}
+
 .ui-button:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: var(--shadow-clay-button-hover);

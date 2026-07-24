@@ -148,12 +148,12 @@ test("设置页动态生成的控件也使用共享组件类", () => {
   assert.match(mcpPage, /ui-control ui-control--small ui-select/);
 });
 
-test("MCP 空状态居中且保存权限按钮固定为左对齐", () => {
+test("MCP 编辑器展开时使用自然高度且固定控件不会被压缩", () => {
   const css = readUiFile("src/settings.css");
 
   assert.match(
     css,
-    /\.mcp-page\s*\{[^}]*height:\s*100%;[^}]*box-sizing:\s*border-box;/s,
+    /\.mcp-page\s*\{[^}]*min-height:\s*100%;[^}]*height:\s*auto;[^}]*box-sizing:\s*border-box;/s,
   );
   assert.match(
     css,
@@ -165,7 +165,39 @@ test("MCP 空状态居中且保存权限按钮固定为左对齐", () => {
   );
   assert.match(
     css,
-    /\.mcp-policy-save-btn\s*\{[^}]*align-self:\s*flex-start;/s,
+    /\.mcp-policy-save-btn\s*\{[^}]*flex-shrink:\s*0;[^}]*align-self:\s*flex-start;/s,
+  );
+  assert.match(
+    css,
+    /\.mcp-editor\s*\{[^}]*flex-shrink:\s*0;/s,
+  );
+});
+
+test("MCP 权限按钮位于编辑器之后并正确同步空状态", () => {
+  const html = readUiFile("settings.html");
+  const componentsCss = readUiFile("src/window-components.css");
+  const mcpPage = readUiFile("src/settings/pages/mcp-page.ts");
+  const editorIndex = html.indexOf('id="mcp-editor"');
+  const policyButtonIndex = html.indexOf('id="mcp-policy-save-btn"');
+
+  assert.notEqual(editorIndex, -1);
+  assert.ok(policyButtonIndex > editorIndex);
+  assert.match(elementById(html, "mcp-policy-save-btn"), /\shidden(?:\s|>)/);
+  assert.match(
+    componentsCss,
+    /\.ui-button\[hidden\],\s*\.ui-empty-state\[hidden\]\s*\{[^}]*display:\s*none\s*!important;/s,
+  );
+  assert.match(
+    mcpPage,
+    /const editorOpen = !this\.q<HTMLFormElement>\("#mcp-editor"\)\.hidden;/,
+  );
+  assert.match(
+    mcpPage,
+    /this\.q<HTMLDivElement>\("#mcp-empty"\)\.hidden = hasServers \|\| editorOpen;/,
+  );
+  assert.match(
+    mcpPage,
+    /this\.q<HTMLButtonElement>\("#mcp-policy-save-btn"\)\.hidden = !hasServers;/,
   );
 });
 

@@ -102,9 +102,18 @@ export class McpPage implements ISettingsPage {
   private renderServers(): void {
     const list = this.q<HTMLDivElement>("#mcp-server-list");
     list.replaceChildren();
-    this.q<HTMLDivElement>("#mcp-empty").hidden = this.servers.length > 0;
-    this.q<HTMLButtonElement>("#mcp-policy-save-btn").hidden = this.servers.length === 0;
     for (const server of this.servers) list.append(this.createServerCard(server));
+    this.syncPageVisibility();
+  }
+
+  /**
+   * 根据服务和编辑器状态同步空状态及模型权限按钮。
+   */
+  private syncPageVisibility(): void {
+    const hasServers = this.servers.length > 0;
+    const editorOpen = !this.q<HTMLFormElement>("#mcp-editor").hidden;
+    this.q<HTMLDivElement>("#mcp-empty").hidden = hasServers || editorOpen;
+    this.q<HTMLButtonElement>("#mcp-policy-save-btn").hidden = !hasServers;
   }
 
   /**
@@ -257,6 +266,7 @@ export class McpPage implements ISettingsPage {
       : null;
     this.authorizedInsecureFingerprint = null;
     this.q<HTMLFormElement>("#mcp-editor").hidden = false;
+    this.syncPageVisibility();
     this.q<HTMLElement>("#mcp-editor-title").textContent = server ? "编辑 MCP 服务" : "添加 MCP 服务";
     this.q<HTMLInputElement>("#mcp-id").value = server?.config.id ?? "";
     this.q<HTMLInputElement>("#mcp-id").disabled = Boolean(server);
@@ -280,6 +290,7 @@ export class McpPage implements ISettingsPage {
    */
   private closeEditor(): void {
     this.q<HTMLFormElement>("#mcp-editor").hidden = true;
+    this.syncPageVisibility();
     this.editingId = null;
     this.testedFingerprint = null;
     this.authorizedInsecureFingerprint = null;
